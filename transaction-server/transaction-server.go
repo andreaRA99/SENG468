@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -20,15 +21,21 @@ var accounts = []account{
 	{ID: "3", Balance: 300},
 }
 
+type balanceDif struct {
+	ID     string
+	Adding float64
+}
+
 // main
 func main() {
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
 	router.GET("/user", getAll)
-	router.GET("/user/:id", getBalance) // associate GET HTTP method and /user
+	router.GET("/user/:id", getBalance)
 
-	router.GET("/user/:id/add", addBalance)
+	router.POST("/newuser", addAccount)
+	router.POST("/user/:id/addBalance", addBalance)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -54,8 +61,39 @@ func getBalance(c *gin.Context) {
 	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User ID not found"})
 }
 
+func addAccount(c *gin.Context) {
+	var newAccount account
+
+	// Call BindJSON to bind the received JSON to newAccount.
+	if err := c.BindJSON(&newAccount); err != nil {
+		return
+	}
+	// Add the new account to the slice.
+	accounts = append(accounts, newAccount)
+	c.IndentedJSON(http.StatusCreated, newAccount)
+}
+
 func addBalance(c *gin.Context) {
-	id := c.Param("id")
-	//amount := c.Param("qty")
-	c.IndentedJSON(http.StatusOK, id)
+	//id := c.Param("id")
+
+	var addingAmount balanceDif
+	//fmt.Println(addingAmount)
+
+	// Call BindJSON to bind recieved json to newBalance type
+	if err := c.BindJSON(&addingAmount); err != nil {
+		return
+	}
+
+	fmt.Println(addingAmount.ID, addingAmount.Adding)
+
+	for index, i := range accounts {
+		if i.ID == addingAmount.ID {
+			accounts[index].Balance = i.Balance + addingAmount.Adding
+
+			fmt.Println(i.Balance)
+
+			// Change this
+			c.IndentedJSON(http.StatusCreated, accounts)
+		}
+	}
 }
