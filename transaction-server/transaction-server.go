@@ -714,4 +714,39 @@ func healthcheck(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "mongo read unavailable")
 		log.Println(err)
 	}
+func addAccount(c *gin.Context) {
+	var newAccount account
+
+	// Call BindJSON to bind the received JSON to newAccount.
+	if err := c.BindJSON(&newAccount); err != nil {
+		return
+	}
+	// Add the new account to the slice.
+	accounts = append(accounts, newAccount)
+	c.IndentedJSON(http.StatusCreated, newAccount)
+}
+
+func addBalance(c *gin.Context) {
+	//id := c.Param("id")
+
+	var addingAmount balanceDif
+	//fmt.Println(addingAmount)
+
+	// Call BindJSON to bind recieved json to newBalance type
+	if err := c.BindJSON(&addingAmount); err != nil {
+		return
+	}
+
+	fmt.Println(addingAmount.ID, addingAmount.Adding)
+
+	for index, i := range accounts {
+		if i.ID == addingAmount.ID {
+			accounts[index].Balance = i.Balance + addingAmount.Adding
+
+			fmt.Println(i.Balance)
+
+			// Change this
+			c.IndentedJSON(http.StatusCreated, accounts)
+		}
+	}
 }
