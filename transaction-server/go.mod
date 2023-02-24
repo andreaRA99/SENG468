@@ -1,4 +1,4 @@
-module project
+module transaction-server
 
 go 1.20
 

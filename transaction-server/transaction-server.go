@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +28,11 @@ func main() {
 
 	router.GET("/user/:id/add", addBalance)
 
-	router.Run("localhost:8080")
+	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
+	flag.Parse()
+
+	err := router.Run(*bind)
+	log.Fatal(err)
 }
 
 func getAll(c *gin.Context) {

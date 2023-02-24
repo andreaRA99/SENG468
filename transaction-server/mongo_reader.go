@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -34,7 +33,7 @@ func read(collection_ string, p string) {
 	collection := client.Database("myFirstDatabase").Collection(collection_)
 
 	cursor, err := collection.Find(ctx, pattern)
-	
+
 	if err != nil {
 		panic(err)
   	}
