@@ -23,6 +23,8 @@ var accounts = []account{
 // main
 func main() {
 	router := gin.Default() // initializing Gin router
+	router.SetTrustedProxies(nil)
+
 	router.GET("/user", getAll)
 	router.GET("/user/:id", getBalance) // associate GET HTTP method and /user
 
