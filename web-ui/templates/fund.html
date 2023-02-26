@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Add funds{% endblock %}
+
+{% block body %}
+	<div class="balance">
+		<p>Your trading account balance is: <strong class="balance-value">${{ "{:,.2f}".format(balance) }}</strong></p>
+	</div>
+
+	<form class="form" method="POST">
+		<label class="field">
+			<span class="field-label">Add amount $</span>
+			<input class="text-input" type="number" name="amount" min="0.00" step="0.01" required>
+		</label>
+
+		<div class="form-actions">
+			<button class="button">Add funds</button>
+		</div>
+	</form>
+{% endblock %}

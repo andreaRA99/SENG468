@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>{% block title %}{% endblock %} – DayTrading Inc.</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet" nonce="{{ request.state.csp_nonce }}">
+<link rel="stylesheet" href="/css/main.css" nonce="{{ request.state.csp_nonce }}">
+
+<body>
+
+<header class="site-header">
+	<h1 class="title">
+		<svg class="logo" width="48" height="36" viewBox="0 0 48 36">
+			<path d="M 0 0, 48 0, 48 36, 32 36, 0 14 z" fill="black" />
+			<text x="5" y="18" fill="white" font-weight="bold" font-size="16">D</text>
+			<text x="6" y="36" fill="black" font-weight="bold" font-size="17">T</text>
+			<path d="m 0 2, 8 0, 0 -2, 4 3, -4 3, 0 -2, -8 0 z" fill="white" transform="translate(20 10) scale(2.5) rotate(-55 6 3)" />
+		</svg>
+		<span>DayTrading Inc.</span>
+	</h1>
+</header>
+
+<main class="main">
+	{% block body %}{% endblock %}
+</main>
