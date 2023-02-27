@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +49,11 @@ var orders = []order{}
 
 // main
 func main() {
+	sym, username := getParams()
+	quotePrice, timestamp, cryptKey := connectToServer(sym, username)
+
+	fmt.Println("qoute price = ", quotePrice, "\nsym = ", sym, "\nusername = ", username, "\ntimestamp = ", timestamp, "\ncrypt key = ", cryptKey)
+
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
@@ -168,4 +177,63 @@ func buyQuote(c *gin.Context) {
 	orders = append(orders, newOrder)
 
 	c.IndentedJSON(http.StatusOK, newOrder)
+}
+
+func getParams() (string, string) {
+	// read SYM and username from stdin
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter SYM: ") // has to be max 3 letters
+	text1, _ := reader.ReadString('\n')
+	sym := strings.Trim(text1, "\n")
+
+	fmt.Print("Enter username: ")
+	text2, _ := reader.ReadString('\n')
+	usrnme := strings.Trim(text2, "\n")
+
+	return sym, usrnme
+}
+
+func connectToServer(sym string, username string) (string, string, string) {
+	//make connection to server
+	strEcho := sym + " " + username + "\n"
+	servAddr := "quoteserve.seng.uvic.ca:4444"
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+	if err != nil {
+		fmt.Println("\nResolveTCPAddr error: ", err)
+		os.Exit(1)
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		fmt.Println("\nDialTCP error: ", err)
+		os.Exit(1)
+	}
+
+	//write to server SYM being requested and user
+	_, err = conn.Write([]byte(strEcho))
+	if err != nil {
+		fmt.Println("\nWrite error: ", err)
+		os.Exit(1)
+	}
+
+	//reading from server
+	_reply := make([]byte, 1024)
+
+	_, err = conn.Read(_reply)
+	if err != nil {
+		fmt.Println("\nRead error: ", err)
+		os.Exit(1)
+	}
+
+	//parsing reply from server
+	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
+	quotePrice := reply[0]
+	timestamp := reply[3]
+	cryptKey := reply[4]
+
+	conn.Close()
+
+	return quotePrice, timestamp, cryptKey
 }
