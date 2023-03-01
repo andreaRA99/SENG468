@@ -2,7 +2,7 @@
 
 ### Getting account balance for a user when logging in (creates user if not exists)
 **Definition**
-`GET /users/:id`
+`GET /users/:id`  
 **Response**
 - `200 OK` on succes
 ```json
@@ -13,10 +13,10 @@
 ```
 ### Adding money to an account
 **Definitions**
-`PUT /users/:id/addBal`
+`PUT /users/:id/addBal`  
 **Arguments**
 - `"id":string` User ID 
-- `"amount":float64` money to add to account
+- `"amount":float64` money to add to account  
 **Response**
 ```json
 {
@@ -25,9 +25,9 @@
 }
 ```
 
-### Request for Stock Quote
+### Request for Stock Quote  
 **Definitions**
-`GET /users/:id/quote/:stock`
+`GET /users/:id/quote/:stock`  
 **Response**
 ```json
 {
@@ -36,13 +36,13 @@
 }
 ```
 
-## Buy Quote
+## Buy Quote  
 **Definitions**
-`POST /users/:id/buy/:stock`
+`POST /users/:id/buy/:stock`  
 **Arguments**
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
-- `"buy":float64` Dollar amount to buy
+- `"buy":float64` Dollar amount to buy  
 **Response**
 ```json
 {
@@ -53,14 +53,14 @@
 }
 ```
 
-## Confirm Buy 
+## Confirm Buy   
 **Definitions**
-`POST /users/:id/buy/:stock/:buyid`
+`POST /users/:id/buy/:stock/:buyid`  
 **Arguments**
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"buy":float64` Dollar amount to buy
-- `"buyid":int` Order identifier
+- `"buyid":int` Order identifier  
 **Response**
 ```json
 {
@@ -71,19 +71,19 @@
 }
 ```
 
-## Cancel Buy
+## Cancel Buy  
 **Definitions**
-`DELETE /users/:id/buy/cancel/:buyid`
+`DELETE /users/:id/buy/cancel/:buyid`  
 **Response**
 -`404 Not Found`
 
-## Sell Quote
+## Sell Quote  
 **Definitions**
-`POST /users/:id/sell/:stock`
+`POST /users/:id/sell/:stock`  
 **Arguments**
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
-- `"sell":float64` Dollar amount to sell
+- `"sell":float64` Dollar amount to sell  
 **Response**
 ```json
 {
@@ -93,14 +93,14 @@
 }
 ```
 
-## Confirm Sell 
+## Confirm Sell  
 **Definitions**
-`POST /users/:id/sell/:stock/:sellid`
+`POST /users/:id/sell/:stock/:sellid`  
 **Arguments**
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"sell":float64` Dollar amount to buy
-- `"sellid":int` Order identifier
+- `"sellid":int` Order identifier  
 **Response**
 ```json
 {
@@ -111,9 +111,9 @@
 }
 ```
 
-## Cancel Sell
+## Cancel Sell  
 **Definitions**
-`DELETE /users/:id/sell/cancel/:sellid`
+`DELETE /users/:id/sell/cancel/:sellid`  
 **Response**
 -`404 Not Found`
 
