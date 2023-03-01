@@ -10,11 +10,13 @@
     "balance": 100
 }
 ```
+
 ## Adding money to an account
 `PUT /users/:id/addBal`  
 **Arguments**
 - `"id":string` User ID 
 - `"amount":float64` money to add to account  
+
 **Response**
 ```json
 {
@@ -39,6 +41,7 @@
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"buy":float64` Dollar amount to buy  
+
 **Response**
 ```json
 {
@@ -56,6 +59,7 @@
 - `"stock":string` Stock Symbol
 - `"buy":float64` Dollar amount to buy
 - `"buyid":int` Order identifier  
+
 **Response**
 ```json
 {
@@ -78,6 +82,7 @@
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"sell":float64` Dollar amount to sell  
+
 **Response**
 ```json
 {
@@ -94,6 +99,7 @@
 - `"stock":string` Stock Symbol
 - `"sell":float64` Dollar amount to buy
 - `"sellid":int` Order identifier  
+
 **Response**
 ```json
 {
