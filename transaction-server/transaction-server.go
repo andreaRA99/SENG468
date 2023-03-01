@@ -43,6 +43,7 @@ type balanceDif struct {
 	Amount float64
 }
 
+<<<<<<< HEAD
 type users struct {
 	user_id string
 }
@@ -52,10 +53,13 @@ type c_bal struct {
 	cash_balance int32
 }
 
+=======
+>>>>>>> 3b69ded (Adding README.md)
 type quote struct {
 	Stock string
 	Price float64
 	CKey  string // Crytohraphic key
+<<<<<<< HEAD
 	// add timeout property
 }
 
@@ -74,6 +78,8 @@ func connectDb(databaseUri string) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return mongo.Connect(ctx, options.Client().ApplyURI(databaseUri))
+=======
+>>>>>>> 3b69ded (Adding README.md)
 }
 
 // main
@@ -81,6 +87,7 @@ func main() {
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
+<<<<<<< HEAD
 	var db *mongo.Database
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("db", db)
@@ -102,6 +109,16 @@ func main() {
 	router.POST("/users/:id/sell/:stock/amount/:quantity", sellStock)
 
 	router.GET("/health", healthcheck)
+=======
+	router.GET("/users", getAll) // Do we even need?? Not really
+	router.GET("/users/:id", getBalance)
+
+	//router.POST("/newuser", addAccount) Migh be used if we do sign up
+
+	router.PUT("/users/:id/addBal", addBalance)
+
+	router.GET("/users/:id/quote/:stock", getQuote)
+>>>>>>> 3b69ded (Adding README.md)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -148,6 +165,7 @@ func getAccount(c *gin.Context) {
 		return
 	}
 	// If account not found
+<<<<<<< HEAD
 
 	err := insert("users", bson.D{{"user_id", id}})
 	if err != "ok" {
@@ -486,38 +504,68 @@ func healthcheck(c *gin.Context) {
 		log.Println(err)
 	}
 func addAccount(c *gin.Context) {
-	var newAccount account
-
-	// Call BindJSON to bind the received JSON to newAccount.
-	if err := c.BindJSON(&newAccount); err != nil {
-		return
-	}
-	// Add the new account to the slice.
-	accounts = append(accounts, newAccount)
-	c.IndentedJSON(http.StatusCreated, newAccount)
+=======
+	var newAccount account = addAccount(id)
+	c.IndentedJSON(http.StatusOK, newAccount)
 }
+
+func addAccount(id string) account {
+>>>>>>> 3b69ded (Adding README.md)
+	var newAccount account
+	newAccount.ID = id
+	newAccount.Balance = 0
+
+	accounts = append(accounts, newAccount)
+	return newAccount
+}
+
+// THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
+// func addAccount(c *gin.Context) {
+// 	var newAccount account
+
+// 	// Call BindJSON to bind the received JSON to newAccount.
+// 	if err := c.BindJSON(&newAccount); err != nil {
+// 		return
+// 	}
+// 	// Add the new account to the slice.
+// 	accounts = append(accounts, newAccount)
+// 	c.IndentedJSON(http.StatusCreated, newAccount)
+// }
 
 func addBalance(c *gin.Context) {
 	//id := c.Param("id")
 
+	// creating a balanceDif to update account
 	var addingAmount balanceDif
 	//fmt.Println(addingAmount)
-
 	// Call BindJSON to bind recieved json to newBalance type
 	if err := c.BindJSON(&addingAmount); err != nil {
 		return
 	}
 
-	fmt.Println(addingAmount.ID, addingAmount.Adding)
+	fmt.Println(addingAmount.ID, addingAmount.Amount)
 
 	for index, i := range accounts {
 		if i.ID == addingAmount.ID {
-			accounts[index].Balance = i.Balance + addingAmount.Adding
+			accounts[index].Balance = i.Balance + addingAmount.Amount
 
 			fmt.Println(i.Balance)
 
 			// Change this
-			c.IndentedJSON(http.StatusCreated, accounts)
+			c.IndentedJSON(http.StatusOK, accounts[index])
 		}
 	}
+}
+
+func getQuote(c *gin.Context) {
+	// TODO:
+	// request quote from legacy server
+	// update db
+	//id := c.Param("id") not sure we need
+	stock_sym := c.Param("stock")
+	var newQuote quote
+	newQuote.Stock = stock_sym
+	newQuote.Price = 250.01
+	newQuote.CKey = "n2378dnfq8"
+	c.IndentedJSON(http.StatusOK, newQuote)
 }
