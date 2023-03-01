@@ -1,7 +1,6 @@
-## transaction-server API
+## Transaction-Server API
 
-### Getting account balance for a user when logging in (creates user if not exists)
-**Definition**
+## Getting account balance for a user when logging in (creates user if not exists)  
 `GET /users/:id`  
 **Response**
 - `200 OK` on succes
@@ -11,8 +10,7 @@
     "balance": 100
 }
 ```
-### Adding money to an account
-**Definitions**
+## Adding money to an account
 `PUT /users/:id/addBal`  
 **Arguments**
 - `"id":string` User ID 
@@ -25,8 +23,7 @@
 }
 ```
 
-### Request for Stock Quote  
-**Definitions**
+## Request for Stock Quote  
 `GET /users/:id/quote/:stock`  
 **Response**
 ```json
@@ -37,7 +34,6 @@
 ```
 
 ## Buy Quote  
-**Definitions**
 `POST /users/:id/buy/:stock`  
 **Arguments**
 - `"id":string` User ID 
@@ -54,7 +50,6 @@
 ```
 
 ## Confirm Buy   
-**Definitions**
 `POST /users/:id/buy/:stock/:buyid`  
 **Arguments**
 - `"id":string` User ID 
@@ -72,7 +67,6 @@
 ```
 
 ## Cancel Buy  
-**Definitions**
 `DELETE /users/:id/buy/cancel/:buyid`  
 **Response**
 -`404 Not Found`
@@ -94,7 +88,6 @@
 ```
 
 ## Confirm Sell  
-**Definitions**
 `POST /users/:id/sell/:stock/:sellid`  
 **Arguments**
 - `"id":string` User ID 
@@ -112,7 +105,6 @@
 ```
 
 ## Cancel Sell  
-**Definitions**
 `DELETE /users/:id/sell/cancel/:sellid`  
 **Response**
 -`404 Not Found`
