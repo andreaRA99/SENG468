@@ -43,7 +43,6 @@ type balanceDif struct {
 	Amount float64
 }
 
-<<<<<<< HEAD
 type users struct {
 	user_id string
 }
@@ -53,12 +52,11 @@ type c_bal struct {
 	cash_balance int32
 }
 
-=======
->>>>>>> 3b69ded (Adding README.md)
 type quote struct {
 	Stock string
 	Price float64
 	CKey  string // Crytohraphic key
+<<<<<<< HEAD
 <<<<<<< HEAD
 	// add timeout property
 }
@@ -80,7 +78,20 @@ func connectDb(databaseUri string) (*mongo.Client, error) {
 	return mongo.Connect(ctx, options.Client().ApplyURI(databaseUri))
 =======
 >>>>>>> 3b69ded (Adding README.md)
+=======
+	// add timeout property
+>>>>>>> 21311de (ADD, QUOTE, BUY requests work with structs, need to connect to Database)
 }
+
+type order struct {
+	ID     string
+	Stock  string
+	Buy    float64 // amount
+	Buy_id int
+	// figure out timeout feature
+}
+
+var orders = []order{}
 
 // main
 func main() {
@@ -111,6 +122,7 @@ func main() {
 	router.GET("/health", healthcheck)
 =======
 	router.GET("/users", getAll) // Do we even need?? Not really
+
 	router.GET("/users/:id", getBalance)
 
 	//router.POST("/newuser", addAccount) Migh be used if we do sign up
@@ -119,6 +131,8 @@ func main() {
 
 	router.GET("/users/:id/quote/:stock", getQuote)
 >>>>>>> 3b69ded (Adding README.md)
+
+	router.POST("/users/:id/buy/:stock", buyQuote)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -568,4 +582,28 @@ func getQuote(c *gin.Context) {
 	newQuote.Price = 250.01
 	newQuote.CKey = "n2378dnfq8"
 	c.IndentedJSON(http.StatusOK, newQuote)
+}
+
+func buyQuote(c *gin.Context) {
+	var newOrder order
+	if err := c.BindJSON(&newOrder); err != nil {
+		return
+	}
+
+	// Check if user has enough balance
+	for index, i := range accounts {
+		if i.ID == newOrder.ID {
+			if accounts[index].Balance < newOrder.Buy {
+				c.IndentedJSON(http.StatusBadRequest, accounts[index])
+				return
+			}
+		}
+	}
+
+	// User has enough balance, proceed creating order
+	buy_id := len(orders) + 1
+	newOrder.Buy_id = buy_id
+	orders = append(orders, newOrder)
+
+	c.IndentedJSON(http.StatusOK, newOrder)
 }
