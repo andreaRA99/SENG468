@@ -28,7 +28,7 @@ var accounts = []account{
 // main
 func main() {
 	sym, username := getParams()
-	quotePrice, timestamp, cryptKey := connectToServer(sym, username)
+	quotePrice, timestamp, cryptKey := getQuote(sym, username)
 
 	fmt.Println("qoute price = ", quotePrice, "\nsym = ", sym, "\nusername = ", username, "\ntimestamp = ", timestamp, "\ncrypt key = ", cryptKey)
 
@@ -85,7 +85,7 @@ func getParams() (string, string) {
 	return sym, usrnme
 }
 
-func connectToServer(sym string, username string) (string, string, string) {
+func getQuote(sym string, username string) (string, string, string) {
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
 	servAddr := "quoteserve.seng.uvic.ca:4444"
