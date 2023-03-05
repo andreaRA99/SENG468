@@ -1,32 +1,59 @@
+
 package main
 
 import (
 	"context"
-	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
+	"log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-func insert(collection_ string, data bson.D) {
+
+
+func updateOne(collection_ string, who bson.D, with bson.D, _type string) string{
+
+	update := bson.D{{_type, with}}
+
 	ctx := context.TODO()
-	uri := "mongodb+srv://daytrading.bpyesvi.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&tlsCertificateKeyFile=/Users/mateomoody/Desktop/X509-cert-3374770886339045150.cer"
-	clientOptions := options.Client().ApplyURI(uri)
+   uri := "mongodb+srv://daytrading.bpyesvi.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&tlsCertificateKeyFile=/Users/mateomoody/Desktop/X509-cert-3374770886339045150.cer"
+   clientOptions := options.Client().ApplyURI(uri)
 
 	client, err := mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		log.Fatal(err)
+	if err != nil { 
+		log.Fatal(err) 
+		panic(err)
+		return "Failed to Update Value"
 	}
 	defer client.Disconnect(ctx)
 
-	collection := client.Database("myFirstDatabase").Collection("TEST")
-	result, err := collection.InsertOne(ctx, bson.D{{"user_id", "10"}, {"encrypted_key", "10"}})
-	fmt.Println(result)
-	fmt.Println(err)
-	docCount, err := collection.CountDocuments(ctx, bson.D{})
-	if err != nil {
-		log.Fatal(err)
+	collection := client.Database("daytrading").Collection(collection_)
+	_, err = collection.UpdateOne(ctx, who, update)
+	if err != nil { 
+		log.Fatal(err) 
+		panic(err)
+		return "Failed to Update Value"
 	}
-	fmt.Println(docCount)
+
+	return "ok"
+
+
+}
+func insert(collection_ string, data bson.D) string {
+	ctx := context.TODO()
+  uri := "mongodb+srv://daytrading.bpyesvi.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&tlsCertificateKeyFile=/Users/mateomoody/Desktop/X509-cert-3374770886339045150.cer"
+  clientOptions := options.Client().ApplyURI(uri)
+
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil { log.Fatal(err) }
+	defer client.Disconnect(ctx)
+
+	collection := client.Database("daytrading").Collection(collection_)
+	_, err = collection.InsertOne(ctx, data)
+	if err != nil { 
+		log.Fatal(err) 
+		return "Failed to Insert Value"
+	}
+
+	return "ok"
 }
