@@ -50,6 +50,8 @@ func insert(collection_ string, data bson.D) string {
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
+		panic(err)
+		return "Failed to Update Value"
 	}
 	defer client.Disconnect(ctx)
 
