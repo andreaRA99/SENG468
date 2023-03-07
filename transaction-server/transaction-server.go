@@ -698,3 +698,17 @@ func sellStock(c *gin.Context) {
 	//return
 	//c.IndentedJSON(http.StatusOK, newOrder)
 }
+
+func healthcheck(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
