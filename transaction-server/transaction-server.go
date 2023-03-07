@@ -1,10 +1,9 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +11,13 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // mock db, actual requests will be sent to a Mongo DB
@@ -63,10 +69,23 @@ type order struct {
 
 var orders = []order{}
 
+func connectDb(databaseUri string) (*mongo.Client, error) {
+	// adapted from https://github.com/mongodb/mongo-go-driver/blob/d957e67225a9ea82f1c7159020b4f9fd7c8d441a/README.md#usage
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return mongo.Connect(ctx, options.Client().ApplyURI(databaseUri))
+}
+
 // main
 func main() {
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
+
+	var db *mongo.Database
+	router.Use(func(ctx *gin.Context) {
+		ctx.Set("db", db)
+		ctx.Next()
+	})
 
 	router.GET("/users", getAll) // Do we even need?? Not really
 
@@ -82,10 +101,32 @@ func main() {
 
 	router.POST("/users/:id/sell/:stock/amount/:quantity", sellStock)
 
+	router.GET("/health", healthcheck)
+
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
 
-	err := router.Run(*bind)
+	databaseUri, found := os.LookupEnv("DATABASE_URI")
+	if !found {
+		log.Fatalln("No DATABASE_URI")
+	}
+
+	mongoClient, err := connectDb(databaseUri)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	db = mongoClient.Database("daytrading")
+
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := mongoClient.Disconnect(ctx); err != nil {
+			panic(err)
+		}
+	}()
+
+	err = router.Run(*bind)
 	log.Fatal(err)
 }
 
@@ -371,4 +412,18 @@ func sellStock(c *gin.Context) {
 	//orders = append(orders, newOrder)
 	//return
 	//c.IndentedJSON(http.StatusOK, newOrder)
+}
+
+func healthcheck(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
 }
