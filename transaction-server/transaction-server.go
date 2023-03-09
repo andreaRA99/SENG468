@@ -111,6 +111,8 @@ func main() {
 		log.Fatalln("No DATABASE_URI")
 	}
 
+	
+
 	mongoClient, err := connectDb(databaseUri)
 	if err != nil {
 		log.Fatalln(err)
