@@ -7,13 +7,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"os"
 )
 
-var uri = "mongodb+srv://daytrading.bpyesvi.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&tlsCertificateKeyFile=/Users/mateomoody/Desktop/X509-cert-3374770886339045150.cer"
+
 
 func rawreadField(collection_ string, filter bson.D, fields bson.D) []bson.D {
+	databaseUri, found := os.LookupEnv("DATABASE_URI")
+	if !found {
+		log.Fatalln("No DATABASE_URI")
+	}
 	ctx := context.TODO()
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(databaseUri)
 	client, err := mongo.Connect(ctx, clientOptions)
 	opts := options.Find().SetProjection(fields)
 	if err != nil {
@@ -54,9 +59,15 @@ func rawreadField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 	//fmt.Println(results)
 	return results
 }
+
+
 func readField(collection_ string, filter bson.D, fields bson.D) []bson.D {
+	databaseUri, found := os.LookupEnv("DATABASE_URI")
+	if !found {
+		log.Fatalln("No DATABASE_URI")
+	}
 	ctx := context.TODO()
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(databaseUri)
 	client, err := mongo.Connect(ctx, clientOptions)
 	opts := options.Find().SetProjection(fields)
 
@@ -78,9 +89,13 @@ func readField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 }
 
 func readOne(collection_ string, filter bson.D) bson.D {
+	databaseUri, found := os.LookupEnv("DATABASE_URI")
+	if !found {
+		log.Fatalln("No DATABASE_URI")
+	}
 	ctx := context.TODO()
 
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(databaseUri)
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
@@ -100,9 +115,13 @@ func readOne(collection_ string, filter bson.D) bson.D {
 	return results
 }
 func readMany(collection_ string, filter bson.D) []bson.D {
+	databaseUri, found := os.LookupEnv("DATABASE_URI")
+	if !found {
+		log.Fatalln("No DATABASE_URI")
+	}
 	ctx := context.TODO()
 
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(databaseUri)
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
