@@ -208,7 +208,7 @@ func getQuoteLocal(sym string) float64 {
 	return 1
 }
 
-func getQuoteTEMP(sym string, username string) (string, string, string) {
+func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -244,7 +244,10 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 
 	//parsing reply from server
 	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice := reply[0]
+	quotePrice, err := strconv.ParseFloat(reply[0], 64)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	timestamp := reply[3]
 	cryptKey := reply[4]
 
