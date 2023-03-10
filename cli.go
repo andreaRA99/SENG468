@@ -1,28 +1,26 @@
 package main
 
 import (
-	"io/ioutil"
 	"fmt"
-	"net/http"	
+	"io/ioutil"
+	"net/http"
 	"os"
-	
 )
 
+func main() {
 
-func CLI() {
-	
-	requestURL := fmt.Sprintf("http://localhost:8080/health")
-	req, err := http.NewRequest("Get", requestURL, nil)
+	requestURL := "http://localhost:8080/health"
+	res, err := http.Get(requestURL)
 	if err != nil {
 		fmt.Printf("client: could not create request: %s\n", err)
 		os.Exit(1)
 	}
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Printf("client: error making http request: %s\n", err)
-		os.Exit(1)
-	}
+	// res, err := http.DefaultClient.Do(req)
+	// if err != nil {
+	// 	fmt.Printf("client: error making http request: %s\n", err)
+	// 	os.Exit(1)
+	// }
 
 	fmt.Printf("client: got response!\n")
 	fmt.Printf("client: status code: %d\n", res.StatusCode)
@@ -34,4 +32,3 @@ func CLI() {
 	}
 	fmt.Printf("client: response body: %s\n", resBody)
 }
-	

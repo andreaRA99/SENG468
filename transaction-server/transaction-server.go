@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -86,7 +87,6 @@ func main() {
 		ctx.Next()
 	})
 
-
 	router.GET("/users", getAll) // Do we even need?? Not really
 
 	router.GET("/users/:id", getAccount)
@@ -125,8 +125,6 @@ func main() {
 			panic(err)
 		}
 	}()
-
-	CLI()
 
 	err = router.Run(*bind)
 	log.Fatal(err)
