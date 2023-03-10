@@ -20,7 +20,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-// mock db, actual requests will be sent to a Mongo DB
 type account struct {
 	ID      string  `json:"id"`
 	Balance float64 `json:"balance"`
@@ -54,10 +53,8 @@ type c_bal struct {
 
 type quote struct {
 	Stock string
-	Price float64
+	Price string // CHANGE TO INT OR FLOAT
 	CKey  string // Crytohraphic key
-<<<<<<< HEAD
-<<<<<<< HEAD
 	// add timeout property
 }
 
@@ -70,35 +67,35 @@ type order struct {
 }
 
 var orders = []order{}
+
+var quotes = []quote{}
+
+// type log struct {
+// 	Timestamp string
+// 	Server    string
+// 	T_num     int
+// 	Command   string
+// 	Username  string
+// 	Stock     string
+// 	Filename  string
+// 	Funds     float32
+// }
+
+var logfile = []string{} //WILL BE MOVED TO DB
+var transaction_counter = 0
 
 func connectDb(databaseUri string) (*mongo.Client, error) {
 	// adapted from https://github.com/mongodb/mongo-go-driver/blob/d957e67225a9ea82f1c7159020b4f9fd7c8d441a/README.md#usage
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return mongo.Connect(ctx, options.Client().ApplyURI(databaseUri))
-=======
->>>>>>> 3b69ded (Adding README.md)
-=======
-	// add timeout property
->>>>>>> 21311de (ADD, QUOTE, BUY requests work with structs, need to connect to Database)
 }
-
-type order struct {
-	ID     string
-	Stock  string
-	Buy    float64 // amount
-	Buy_id int
-	// figure out timeout feature
-}
-
-var orders = []order{}
 
 // main
 func main() {
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
-<<<<<<< HEAD
 	var db *mongo.Database
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("db", db)
@@ -120,19 +117,6 @@ func main() {
 	router.POST("/users/:id/sell/:stock/amount/:quantity", sellStock)
 
 	router.GET("/health", healthcheck)
-=======
-	router.GET("/users", getAll) // Do we even need?? Not really
-
-	router.GET("/users/:id", getBalance)
-
-	//router.POST("/newuser", addAccount) Migh be used if we do sign up
-
-	router.PUT("/users/:id/addBal", addBalance)
-
-	router.GET("/users/:id/quote/:stock", getQuote)
->>>>>>> 3b69ded (Adding README.md)
-
-	router.POST("/users/:id/buy/:stock", buyQuote)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -178,24 +162,22 @@ func getAccount(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, r)
 		return
 	}
-	// If account not found
-<<<<<<< HEAD
 
+	addAccount(id)
+	// If account not found
+	// err := insert("users", bson.D{{"user_id", id}})
+	// if err != "ok" {
+	// 	panic(err)
+	// }
+	c.IndentedJSON(http.StatusOK, "success")
+}
+
+// called when getAccount does not find user in db
+func addAccount(id string) {
 	err := insert("users", bson.D{{"user_id", id}})
 	if err != "ok" {
 		panic(err)
 	}
-	c.IndentedJSON(http.StatusOK, "success")
-}
-
-func addAccount(id string) account {
-	// NOT CURRENTLY USED
-	var newAccount account
-	newAccount.ID = id
-	newAccount.Balance = 0
-
-	accounts = append(accounts, newAccount)
-	return newAccount
 }
 
 // THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
@@ -212,94 +194,57 @@ func addAccount(id string) account {
 // }
 
 func addBalance(c *gin.Context) {
-	//id := c.Param("id")
-
-	// creating a balanceDif to update account
-	var addingAmount balanceDif
-	//fmt.Println(addingAmount)
-	// Call BindJSON to bind recieved json to newBalance type
-	if err := c.BindJSON(&addingAmount); err != nil {
-		return
-	}
-
-	fmt.Println(addingAmount.ID, addingAmount.Amount)
-
-	for index, i := range accounts {
-		if i.ID == addingAmount.ID {
-			accounts[index].Balance = i.Balance + addingAmount.Amount
-
-			fmt.Println(i.Balance)
-
-			// Change this
-			c.IndentedJSON(http.StatusOK, accounts[index])
-		}
-	}
-}
-
-func getQuote(c *gin.Context) {
-	// TODO:
-	// request quote from legacy server
-	// update db
-	//id := c.Param("id") not sure we need
-	stock_sym := c.Param("stock")
-	var newQuote quote
-	newQuote.Stock = stock_sym
-	newQuote.Price = 250.01
-	newQuote.CKey = "n2378dnfq8"
-	c.IndentedJSON(http.StatusOK, newQuote)
-}
-
-func buyQuote(c *gin.Context) {
-	var newOrder order
-	if err := c.BindJSON(&newOrder); err != nil {
-		return
-	}
-
-	// Check if user has enough balance
-	for index, i := range accounts {
-		if i.ID == newOrder.ID {
-			if accounts[index].Balance < newOrder.Buy {
-				c.IndentedJSON(http.StatusBadRequest, accounts[index])
-				return
-			}
-		}
-	}
-
-	// User has enough balance, proceed creating order
-	buy_id := len(orders) + 1
-	newOrder.Buy_id = buy_id
-	orders = append(orders, newOrder)
-
-	c.IndentedJSON(http.StatusOK, newOrder)
 	id := c.Param("id")
-	bal, err := strconv.Atoi(c.Param("addBal"))
+	sbal := c.Param("addBal")
+	bal, err := strconv.Atoi(sbal)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(id)
-	fmt.Println(bal)
+	// LOGGING timestamp-server-transaction-command-username-funds
+	now := time.Now()
+	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	var log_entry = now.String() + " own_server" + t_num + "ADD" + id + sbal
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 
-	//id := c.Param("id")
+	//rtry := readOne("users", bson.D{{"user_id", id}})
 	r := updateOne("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", bal}}, "$inc")
 
 	if r != "ok" {
 		panic(r)
 	}
 
+	// LOGGING for ACCOUNT CHANGES
+	//timestamp-server-transaction-action-username-funds
+	now = time.Now()
+	t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	log_entry = now.String() + " own_server" + t_num + "add" + id + strconv.Itoa(bal)
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 }
 
-func getQuote(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, "INCOMPLETE")
-
-}
 func getQuoteLocal(sym string) float64 {
 	// WILL BE DELETED LATER
 	// JUST SO THAT THERE IS A RETURN VALUE
 	return 1
 }
 
-func getQuoteTEMP(sym string, username string) (string, string, string) {
+func getQuote(c *gin.Context) {
+	// /users/:id/quote/:stock
+	username := c.Param("id") //maybe change to id for uniform code??
+	sym := c.Param("stock")
+
+	// LOGGING FOR COMMAND: timestamp-server-transaction-command-username-stocksymbol
+	now := time.Now()
+	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	var log_entry = now.String() + " own_server" + t_num + "QUOTE " + username + sym
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
+
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -341,14 +286,27 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 
 	conn.Close()
 
-	return quotePrice, timestamp, cryptKey
+	var new_quote quote
+	new_quote.CKey = cryptKey
+	new_quote.Price = quotePrice //CHANGE TO INT OR FLOAT
+	new_quote.Stock = sym
+
+	// WHERE SHOULD WE STORE QUOTES??
+	quotes = append(quotes, new_quote)
+
+	// LOGGING FOR QS HIT: timestamp-server-transactionNum-price-stocksymbol-username-quoteservertime-cryptokey
+	t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	log_entry = now.String() + " own_server" + t_num + quotePrice + sym + username + sym + timestamp + cryptKey
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 }
 
-func buyStock(c *gin.Context) {
+func buyStock(c *gin.Context) { // BUY SHOULD NOT COMMIT CHANGES
 	id := c.Param("id")
 	stock := c.Param("stock")
-	quantity, err := strconv.ParseFloat(c.Param("quantity"), 64)
-	pps := getQuoteLocal(stock)
+	quantity, err := strconv.ParseFloat(c.Param("quantity"), 64) // CHNAGE TO WORK WITH BODY OF POST REQUEST??
+	pps := getQuoteLocal(stock)                                  //mock. change for getQuote
 
 	if err != nil {
 		panic("ERR")
@@ -517,93 +475,4 @@ func healthcheck(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "mongo read unavailable")
 		log.Println(err)
 	}
-func addAccount(c *gin.Context) {
-=======
-	var newAccount account = addAccount(id)
-	c.IndentedJSON(http.StatusOK, newAccount)
-}
-
-func addAccount(id string) account {
->>>>>>> 3b69ded (Adding README.md)
-	var newAccount account
-	newAccount.ID = id
-	newAccount.Balance = 0
-
-	accounts = append(accounts, newAccount)
-	return newAccount
-}
-
-// THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
-// func addAccount(c *gin.Context) {
-// 	var newAccount account
-
-// 	// Call BindJSON to bind the received JSON to newAccount.
-// 	if err := c.BindJSON(&newAccount); err != nil {
-// 		return
-// 	}
-// 	// Add the new account to the slice.
-// 	accounts = append(accounts, newAccount)
-// 	c.IndentedJSON(http.StatusCreated, newAccount)
-// }
-
-func addBalance(c *gin.Context) {
-	//id := c.Param("id")
-
-	// creating a balanceDif to update account
-	var addingAmount balanceDif
-	//fmt.Println(addingAmount)
-	// Call BindJSON to bind recieved json to newBalance type
-	if err := c.BindJSON(&addingAmount); err != nil {
-		return
-	}
-
-	fmt.Println(addingAmount.ID, addingAmount.Amount)
-
-	for index, i := range accounts {
-		if i.ID == addingAmount.ID {
-			accounts[index].Balance = i.Balance + addingAmount.Amount
-
-			fmt.Println(i.Balance)
-
-			// Change this
-			c.IndentedJSON(http.StatusOK, accounts[index])
-		}
-	}
-}
-
-func getQuote(c *gin.Context) {
-	// TODO:
-	// request quote from legacy server
-	// update db
-	//id := c.Param("id") not sure we need
-	stock_sym := c.Param("stock")
-	var newQuote quote
-	newQuote.Stock = stock_sym
-	newQuote.Price = 250.01
-	newQuote.CKey = "n2378dnfq8"
-	c.IndentedJSON(http.StatusOK, newQuote)
-}
-
-func buyQuote(c *gin.Context) {
-	var newOrder order
-	if err := c.BindJSON(&newOrder); err != nil {
-		return
-	}
-
-	// Check if user has enough balance
-	for index, i := range accounts {
-		if i.ID == newOrder.ID {
-			if accounts[index].Balance < newOrder.Buy {
-				c.IndentedJSON(http.StatusBadRequest, accounts[index])
-				return
-			}
-		}
-	}
-
-	// User has enough balance, proceed creating order
-	buy_id := len(orders) + 1
-	newOrder.Buy_id = buy_id
-	orders = append(orders, newOrder)
-
-	c.IndentedJSON(http.StatusOK, newOrder)
 }
