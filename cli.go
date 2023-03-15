@@ -13,7 +13,7 @@ import (
 // Cmd struct is a representation of an isolated command executed by a user
 type Cmd struct {
 	Command  string `json:"Command"`
-	Username string `json:"Username"`
+	Userid   string `json:"Userid"`
 	Stock    string `json:"Stock"`
 	Amount   string `json:"Amount"`
 	Filename string `json:"Filename"`
@@ -59,6 +59,48 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:     "execute",
+			Aliases:  []string{"e"},
+			HelpName: "execute",
+			Action: func(c *cli.Context) error {
+
+				command := strings.ToUpper(c.String("cmd"))
+				userid := c.String("userid")
+				sym := strings.ToUpper(c.String("sym"))
+				amount := c.String("amount")
+				filename := c.String("filename")
+
+				cmd := Cmd{Command: command, Userid: userid, Stock: sym, Amount: amount, Filename: filename}
+
+				executeCmd(cmd)
+				return nil
+			},
+			Usage:       `Executes specified user command`,
+			Description: `Executes the given command`,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "command, cmd",
+					Usage: "user command",
+				},
+				cli.StringFlag{
+					Name:  "userid, uid",
+					Usage: "username",
+				},
+				cli.StringFlag{
+					Name:  "stocksymbol, sym",
+					Usage: "stock's symbol",
+				},
+				cli.Float64Flag{
+					Name:  "amount, amt",
+					Usage: "amount in dollars",
+				},
+				cli.StringFlag{
+					Name:  "filename, fn",
+					Usage: "file to print out to",
+				},
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
@@ -82,9 +124,7 @@ func readFromFile(c *cli.Context) error {
 
 	for scanner.Scan() {
 		data := parseLine(scanner.Text())
-		if false {
-			fmt.Println(data)
-		}
+		executeCmd(data)
 		// use parsed info to make get/post requests ?
 	}
 
@@ -95,29 +135,29 @@ func readFromFile(c *cli.Context) error {
 	return nil
 }
 
-func parseLine(line string) *Cmd {
+func parseLine(line string) Cmd {
 	line_arr := strings.Split(line, " ")
 	cmd_arr := strings.Split(line_arr[1], ",")
 	command := cmd_arr[0]
 
 	if command == "ADD" {
-		return &Cmd{Command: command, Username: cmd_arr[1], Amount: cmd_arr[2]}
+		return Cmd{Command: command, Userid: cmd_arr[1], Amount: cmd_arr[2]}
 
 	} else if command == "BUY" || command == "SELL" || command == "SET_BUY_AMOUNT" || command == "SET_BUY_TRIGGER" ||
 		command == "SET_SELL_AMOUNT" || command == "SET_SELL_TRIGGER" {
-		return &Cmd{Command: command, Username: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
+		return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
 
 	} else if command == "QUOTE" || command == "CANCEL_SET_BUY" || command == "CANCEL_SET_SELL" {
-		return &Cmd{Command: command, Username: cmd_arr[1], Stock: cmd_arr[2]}
+		return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2]}
 
 	} else if command == "COMMIT_BUY" || command == "COMMIT_SELL" || command == "CANCEL_BUY" || command == "CANCEL_SELL" || command == "DISPLAY_SUMMARY" {
-		return &Cmd{Command: command, Username: cmd_arr[1]}
+		return Cmd{Command: command, Userid: cmd_arr[1]}
 
 	} else if command == "DUMPLOG" {
 		if len(cmd_arr) == 2 {
-			return &Cmd{Command: command, Filename: cmd_arr[1]}
+			return Cmd{Command: command, Filename: cmd_arr[1]}
 		} else {
-			return &Cmd{Command: command, Username: cmd_arr[1], Filename: cmd_arr[2]}
+			return Cmd{Command: command, Userid: cmd_arr[1], Filename: cmd_arr[2]}
 		}
 
 	} else {
@@ -127,7 +167,7 @@ func parseLine(line string) *Cmd {
 	}
 }
 
-// function that sends request  to server to execute command given
-func executeCmd(cmd *Cmd) {
-
+// function that sends request to server to execute command given
+func executeCmd(cmd Cmd) {
+	fmt.Println(cmd)
 }
