@@ -208,7 +208,7 @@ func getQuoteLocal(sym string) float64 {
 	return 1
 }
 
-func getQuoteTEMP(sym string, username string) (string, string, string) {
+func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -217,20 +217,20 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		fmt.Println("\nResolveTCPAddr error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		fmt.Println("\nDialTCP error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//write to server SYM being requested and user
 	_, err = conn.Write([]byte(strEcho))
 	if err != nil {
 		fmt.Println("\nWrite error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//reading from server
@@ -239,12 +239,15 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 	_, err = conn.Read(_reply)
 	if err != nil {
 		fmt.Println("\nRead error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//parsing reply from server
 	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice := reply[0]
+	quotePrice, err := strconv.ParseFloat(reply[0], 64)
+	if err != nil {
+		panic(err)
+	}
 	timestamp := reply[3]
 	cryptKey := reply[4]
 
