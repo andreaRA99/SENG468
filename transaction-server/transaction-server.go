@@ -118,6 +118,8 @@ func main() {
 
 	router.GET("/health", healthcheck)
 
+	router.GET("/log", logAll)
+
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
 
@@ -143,6 +145,10 @@ func main() {
 
 	err = router.Run(*bind)
 	log.Fatal(err)
+}
+
+func logAll(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, logfile)
 }
 
 func getAll(c *gin.Context) {
