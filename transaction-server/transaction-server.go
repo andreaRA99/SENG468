@@ -20,7 +20,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-// mock db, actual requests will be sent to a Mongo DB
 type account struct {
 	ID      string  `json:"id"`
 	Balance float64 `json:"balance"`
@@ -54,7 +53,7 @@ type c_bal struct {
 
 type quote struct {
 	Stock string
-	Price float64
+	Price string // CHANGE TO INT OR FLOAT
 	CKey  string // Crytohraphic key
 	// add timeout property
 }
@@ -68,6 +67,22 @@ type order struct {
 }
 
 var orders = []order{}
+
+var quotes = []quote{}
+
+// type log struct {
+// 	Timestamp string
+// 	Server    string
+// 	T_num     int
+// 	Command   string
+// 	Username  string
+// 	Stock     string
+// 	Filename  string
+// 	Funds     float32
+// }
+
+var logfile = []string{} //WILL BE MOVED TO DB
+var transaction_counter = 0
 
 func connectDb(databaseUri string) (*mongo.Client, error) {
 	// adapted from https://github.com/mongodb/mongo-go-driver/blob/d957e67225a9ea82f1c7159020b4f9fd7c8d441a/README.md#usage
@@ -103,6 +118,8 @@ func main() {
 
 	router.GET("/health", healthcheck)
 
+	router.GET("/log", logAll)
+
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
 
@@ -130,6 +147,10 @@ func main() {
 	log.Fatal(err)
 }
 
+func logAll(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, logfile)
+}
+
 func getAll(c *gin.Context) {
 	// Bad on performance
 	r := readMany("users", bson.D{})
@@ -147,23 +168,22 @@ func getAccount(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, r)
 		return
 	}
-	// If account not found
 
+	addAccount(id)
+	// If account not found
+	// err := insert("users", bson.D{{"user_id", id}})
+	// if err != "ok" {
+	// 	panic(err)
+	// }
+	c.IndentedJSON(http.StatusOK, "success")
+}
+
+// called when getAccount does not find user in db
+func addAccount(id string) {
 	err := insert("users", bson.D{{"user_id", id}})
 	if err != "ok" {
 		panic(err)
 	}
-	c.IndentedJSON(http.StatusOK, "success")
-}
-
-func addAccount(id string) account {
-	// NOT CURRENTLY USED
-	var newAccount account
-	newAccount.ID = id
-	newAccount.Balance = 0
-
-	accounts = append(accounts, newAccount)
-	return newAccount
 }
 
 // THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
@@ -180,35 +200,58 @@ func addAccount(id string) account {
 // }
 
 func addBalance(c *gin.Context) {
-	id := c.Param("id")
-	bal, err := strconv.Atoi(c.Param("addBal"))
+	//id := c.Param("id")
+	id := "1"
+	sbal := c.Param("addBal")
+	bal, err := strconv.Atoi(sbal)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(id)
-	fmt.Println(bal)
+	// LOGGING timestamp-server-transaction-command-username-funds
+	now := time.Now()
+	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	var log_entry = now.String() + " own_server" + t_num + "ADD" + id + sbal
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 
-	//id := c.Param("id")
+	//rtry := readOne("users", bson.D{{"user_id", id}})
 	r := updateOne("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", bal}}, "$inc")
 
 	if r != "ok" {
 		panic(r)
 	}
 
+	// LOGGING for ACCOUNT CHANGES
+	//timestamp-server-transaction-action-username-funds
+	now = time.Now()
+	t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	log_entry = now.String() + " own_server" + t_num + "add" + id + strconv.Itoa(bal)
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 }
 
-func getQuote(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, "INCOMPLETE")
-
-}
 func getQuoteLocal(sym string) float64 {
 	// WILL BE DELETED LATER
 	// JUST SO THAT THERE IS A RETURN VALUE
 	return 1
 }
 
-func getQuoteTEMP(sym string, username string) (float64, string, string) {
+func getQuote(c *gin.Context) {
+	// /users/:id/quote/:stock
+	username := c.Param("id") //maybe change to id for uniform code??
+	sym := c.Param("stock")
+
+	// LOGGING FOR COMMAND: timestamp-server-transaction-command-username-stocksymbol
+	now := time.Now()
+	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	var log_entry = now.String() + " own_server" + t_num + "QUOTE " + username + sym
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
+
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -217,20 +260,20 @@ func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		fmt.Println("\nResolveTCPAddr error: ", err)
-		panic(err)
+		os.Exit(1)
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		fmt.Println("\nDialTCP error: ", err)
-		panic(err)
+		os.Exit(1)
 	}
 
 	//write to server SYM being requested and user
 	_, err = conn.Write([]byte(strEcho))
 	if err != nil {
 		fmt.Println("\nWrite error: ", err)
-		panic(err)
+		os.Exit(1)
 	}
 
 	//reading from server
@@ -239,28 +282,38 @@ func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	_, err = conn.Read(_reply)
 	if err != nil {
 		fmt.Println("\nRead error: ", err)
-		panic(err)
+		os.Exit(1)
 	}
 
 	//parsing reply from server
 	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice, err := strconv.ParseFloat(reply[0], 64)
-	if err != nil {
-		panic(err)
-	}
+	quotePrice := reply[0]
 	timestamp := reply[3]
 	cryptKey := reply[4]
 
 	conn.Close()
 
-	return quotePrice, timestamp, cryptKey
+	var new_quote quote
+	new_quote.CKey = cryptKey
+	new_quote.Price = quotePrice //CHANGE TO INT OR FLOAT
+	new_quote.Stock = sym
+
+	// WHERE SHOULD WE STORE QUOTES??
+	quotes = append(quotes, new_quote)
+
+	// LOGGING FOR QS HIT: timestamp-server-transactionNum-price-stocksymbol-username-quoteservertime-cryptokey
+	t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	log_entry = now.String() + " own_server" + t_num + quotePrice + sym + username + sym + timestamp + cryptKey
+	logfile = append(logfile, log_entry)
+	log.Println(log_entry)
 }
 
-func buyStock(c *gin.Context) {
+func buyStock(c *gin.Context) { // BUY SHOULD NOT COMMIT CHANGES
 	id := c.Param("id")
 	stock := c.Param("stock")
-	quantity, err := strconv.ParseFloat(c.Param("quantity"), 64)
-	pps := getQuoteLocal(stock)
+	quantity, err := strconv.ParseFloat(c.Param("quantity"), 64) // CHNAGE TO WORK WITH BODY OF POST REQUEST??
+	pps := getQuoteLocal(stock)                                  //mock. change for getQuote
 
 	if err != nil {
 		panic("ERR")
@@ -428,40 +481,5 @@ func healthcheck(c *gin.Context) {
 	} else {
 		c.String(http.StatusInternalServerError, "mongo read unavailable")
 		log.Println(err)
-	}
-func addAccount(c *gin.Context) {
-	var newAccount account
-
-	// Call BindJSON to bind the received JSON to newAccount.
-	if err := c.BindJSON(&newAccount); err != nil {
-		return
-	}
-	// Add the new account to the slice.
-	accounts = append(accounts, newAccount)
-	c.IndentedJSON(http.StatusCreated, newAccount)
-}
-
-func addBalance(c *gin.Context) {
-	//id := c.Param("id")
-
-	var addingAmount balanceDif
-	//fmt.Println(addingAmount)
-
-	// Call BindJSON to bind recieved json to newBalance type
-	if err := c.BindJSON(&addingAmount); err != nil {
-		return
-	}
-
-	fmt.Println(addingAmount.ID, addingAmount.Adding)
-
-	for index, i := range accounts {
-		if i.ID == addingAmount.ID {
-			accounts[index].Balance = i.Balance + addingAmount.Adding
-
-			fmt.Println(i.Balance)
-
-			// Change this
-			c.IndentedJSON(http.StatusCreated, accounts)
-		}
 	}
 }
