@@ -181,8 +181,7 @@ func addAccount(id string) account {
 
 func addBalance(c *gin.Context) {
 	id := c.Param("id")
-	sbal := c.Param("addBal")
-	bal, err := strconv.Atoi(sbal)
+	bal, err := strconv.Atoi(c.Param("addBal"))
 	if err != nil {
 		panic(err)
 	}
