@@ -2,12 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
-	"os"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"log"
+	"os"
 )
 
 func updateOne(collection_ string, who bson.D, with bson.D, _type string) string {
