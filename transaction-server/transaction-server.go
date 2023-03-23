@@ -166,6 +166,19 @@ func addAccount(id string) account {
 	return newAccount
 }
 
+// ADD ACCOUNT IS NEVER CALLED BY A REQUEST DIRECTLY
+// func addAccount(c *gin.Context) {
+// 	var newAccount account
+
+// 	// Call BindJSON to bind the received JSON to newAccount.
+// 	if err := c.BindJSON(&newAccount); err != nil {
+// 		return
+// 	}
+// 	// Add the new account to the slice.
+// 	accounts = append(accounts, newAccount)
+// 	c.IndentedJSON(http.StatusCreated, newAccount)
+// }
+
 // THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
 // func addAccount(c *gin.Context) {
 // 	var newAccount account
@@ -198,17 +211,44 @@ func addBalance(c *gin.Context) {
 
 }
 
+// DELETE WHEN addBalance is done
+// func addBalance(c *gin.Context) {
+// 	//id := c.Param("id")
+
+// 	var addingAmount balanceDif
+// 	//fmt.Println(addingAmount)
+
+// 	// Call BindJSON to bind recieved json to newBalance type
+// 	if err := c.BindJSON(&addingAmount); err != nil {
+// 		return
+// 	}
+
+// 	fmt.Println(addingAmount.ID, addingAmount.Adding)
+
+// 	for index, i := range accounts {
+// 		if i.ID == addingAmount.ID {
+// 			accounts[index].Balance = i.Balance + addingAmount.Adding
+
+// 			fmt.Println(i.Balance)
+
+// 			// Change this
+// 			c.IndentedJSON(http.StatusCreated, accounts)
+// 		}
+// 	}
+// }
+
 func getQuote(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "INCOMPLETE")
 
 }
+
 func getQuoteLocal(sym string) float64 {
 	// WILL BE DELETED LATER
 	// JUST SO THAT THERE IS A RETURN VALUE
 	return 1
 }
 
-func getQuoteTEMP(sym string, username string) (string, string, string) {
+func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -217,20 +257,20 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		fmt.Println("\nResolveTCPAddr error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		fmt.Println("\nDialTCP error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//write to server SYM being requested and user
 	_, err = conn.Write([]byte(strEcho))
 	if err != nil {
 		fmt.Println("\nWrite error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//reading from server
@@ -239,12 +279,15 @@ func getQuoteTEMP(sym string, username string) (string, string, string) {
 	_, err = conn.Read(_reply)
 	if err != nil {
 		fmt.Println("\nRead error: ", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	//parsing reply from server
 	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice := reply[0]
+	quotePrice, err := strconv.ParseFloat(reply[0], 64)
+	if err != nil {
+		panic(err)
+	}
 	timestamp := reply[3]
 	cryptKey := reply[4]
 

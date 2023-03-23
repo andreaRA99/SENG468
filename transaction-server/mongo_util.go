@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -48,7 +49,6 @@ func mongo_read_bsonA(v bson.A) []holding {
 
 						}
 					}
-
 				}
 			}
 		}
