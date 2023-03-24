@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -65,15 +67,15 @@ func main() {
 			HelpName: "execute",
 			Action: func(c *cli.Context) error {
 
-				command := strings.ToUpper(c.String("cmd"))
-				userid := c.String("userid")
-				sym := strings.ToUpper(c.String("sym"))
-				amount := c.String("amount")
-				filename := c.String("filename")
+				// command := strings.ToUpper(c.String("cmd"))
+				// userid := c.String("userid")
+				// sym := strings.ToUpper(c.String("sym"))
+				// amount := c.String("amount")
+				// filename := c.String("filename")
 
-				cmd := Cmd{Command: command, Userid: userid, Stock: sym, Amount: amount, Filename: filename}
+				// cmd := Cmd{Command: command, Userid: userid, Stock: sym, Amount: amount, Filename: filename}
 
-				executeCmd(cmd)
+				// executeCmd(cmd)
 				return nil
 			},
 			Usage:       `Executes specified user command`,
@@ -123,8 +125,9 @@ func readFromFile(c *cli.Context) error {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		data := parseLine(scanner.Text())
-		executeCmd(data)
+		// parseLine(scanner.Text())
+		data, cmd := parseLine(scanner.Text())
+		executeCmd(data, cmd)
 		// use parsed info to make get/post requests ?
 	}
 
@@ -135,39 +138,132 @@ func readFromFile(c *cli.Context) error {
 	return nil
 }
 
-func parseLine(line string) Cmd {
+func parseLine(line string) (string, string) {
 	line_arr := strings.Split(line, " ")
 	cmd_arr := strings.Split(line_arr[1], ",")
 	command := cmd_arr[0]
 
-	if command == "ADD" {
-		return Cmd{Command: command, Userid: cmd_arr[1], Amount: cmd_arr[2]}
+	// if command == "ADD" {
+	// 	return Cmd{Command: command, Userid: cmd_arr[1], Amount: cmd_arr[2]}
 
-	} else if command == "BUY" || command == "SELL" || command == "SET_BUY_AMOUNT" || command == "SET_BUY_TRIGGER" ||
-		command == "SET_SELL_AMOUNT" || command == "SET_SELL_TRIGGER" {
-		return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
+	// } else if command == "BUY" || command == "SELL" || command == "SET_BUY_AMOUNT" || command == "SET_BUY_TRIGGER" ||
+	// 	command == "SET_SELL_AMOUNT" || command == "SET_SELL_TRIGGER" {
+	// 	return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
 
-	} else if command == "QUOTE" || command == "CANCEL_SET_BUY" || command == "CANCEL_SET_SELL" {
-		return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2]}
+	// } else if command == "QUOTE" || command == "CANCEL_SET_BUY" || command == "CANCEL_SET_SELL" {
+	// 	return Cmd{Command: command, Userid: cmd_arr[1], Stock: cmd_arr[2]}
 
-	} else if command == "COMMIT_BUY" || command == "COMMIT_SELL" || command == "CANCEL_BUY" || command == "CANCEL_SELL" || command == "DISPLAY_SUMMARY" {
-		return Cmd{Command: command, Userid: cmd_arr[1]}
+	// } else if command == "COMMIT_BUY" || command == "COMMIT_SELL" || command == "CANCEL_BUY" || command == "CANCEL_SELL" || command == "DISPLAY_SUMMARY" {
+	// 	return Cmd{Command: command, Userid: cmd_arr[1]}
 
-	} else if command == "DUMPLOG" {
-		if len(cmd_arr) == 2 {
-			return Cmd{Command: command, Filename: cmd_arr[1]}
-		} else {
-			return Cmd{Command: command, Userid: cmd_arr[1], Filename: cmd_arr[2]}
+	// } else if command == "DUMPLOG" {
+	// 	if len(cmd_arr) == 2 {
+	// 		return Cmd{Command: command, Filename: cmd_arr[1]}
+	// 	} else {
+	// 		return Cmd{Command: command, Userid: cmd_arr[1], Filename: cmd_arr[2]}
+	// 	}
+
+	// } else {
+	// 	fmt.Printf("Command received: %s, line: %s\n", command, line)
+	// 	panic("Unknown command received")
+
+	// }
+	requestURL := "http://localhost:8080"
+	switch command {
+	case "ADD":
+		requestURL += "/users/" + cmd_arr[1] + "/add/" + cmd_arr[2]
+	case "QUOTE":
+		requestURL += "/users/" + cmd_arr[1] + "/quote/" + cmd_arr[2]
+	case "BUY":
+		requestURL += "/users/" + cmd_arr[1] + "/buy/" + cmd_arr[2] + "/amount/" + cmd_arr[3]
+	case "COMMIT_BUY":
+		requestURL += "/users/" + cmd_arr[1] + "/buy/commit"
+	case "CANCEL_BUY":
+		requestURL += "/users/" + cmd_arr[1] + "/buy/cancel"
+	case "SELL":
+		requestURL += "/users/" + cmd_arr[1] + "/sell/" + cmd_arr[2] + "/amount/" + cmd_arr[3]
+	case "COMMIT_SELL":
+		requestURL += "/users/" + cmd_arr[1] + "/sell/commit"
+	case "CANCEL_SELL":
+		requestURL += "/users/" + cmd_arr[1] + "/sell/cancel"
+	case "SET_BUY_AMOUNT":
+		requestURL += "/users/" + cmd_arr[1] + "/set_buy/" + cmd_arr[2] + "/amount/" + cmd_arr[3]
+	case "CANCEL_SET_BUY":
+		requestURL += "/users/" + cmd_arr[1] + "/set_buy/cancel/" + cmd_arr[2]
+	case "SET_BUY_TRIGGER":
+		requestURL += "/users/" + cmd_arr[1] + "/set_buy/trigger/" + cmd_arr[2] + "/amount/" + cmd_arr[3]
+	case "SET_SELL_AMOUNT":
+		requestURL += "/users/" + cmd_arr[1] + "/set_sell/" + cmd_arr[1] + "/amount/" + cmd_arr[2]
+	case "SET_SELL_TRIGGER":
+		requestURL += "/users/" + cmd_arr[1] + "/set_sell/trigger/" + cmd_arr[2] + "/amount/" + cmd_arr[3]
+	case "CANCEL_SET_SELL":
+		requestURL += "/users/" + cmd_arr[1] + "/set_sell/cancel/" + cmd_arr[2]
+	case "DUMPLOG":
+		if len(cmd_arr) == 3 {
+			requestURL += "/users/" + cmd_arr[1] + "/dumplog/" + cmd_arr[2]
 		}
-
-	} else {
-		fmt.Printf("Command received: %s, line: %s\n", command, line)
-		panic("Unknown command received")
-
+		if len(cmd_arr) == 2 {
+			requestURL += "/dumplog/" + cmd_arr[1]
+		}
+	case "DISPLAY_SUMMARY":
+		requestURL += "/users/" + cmd_arr[1] + "/display_summary"
 	}
+
+	if requestURL == "http://localhost:8080" {
+		fmt.Printf("Command received: %s, line: %s\n", command, line)
+		panic("Unkown command received")
+	}
+
+	return requestURL, command
 }
 
 // function that sends request to server to execute command given
-func executeCmd(cmd Cmd) {
-	fmt.Println(cmd)
+func executeCmd(reqUrl string, cmd string) {
+	fmt.Println(reqUrl)
+	// requestURL := "http://localhost:8080/health"
+	// res, err := http.MethodPut(requestURL)
+	// if err != nil {
+	// 	fmt.Printf("client: could not create request: %s\n", err)
+	// 	panic(err)
+	// }
+
+	// fmt.Printf("client: got response!\n")
+	// fmt.Printf("client: status code: %d\n", res.StatusCode)
+
+	// resBody, err := ioutil.ReadAll(res.Body)
+	// if err != nil {
+	// 	fmt.Printf("client: could not read response body: %s\n", err)
+	// 	panic(err)
+	// }
+	// fmt.Printf("client: response body: %s\n", resBody)
+
+	// if cmd.Command == "ADD" {
+
+	// }
+	var res *http.Response
+	var err error
+	if cmd == "QUOTE" {
+		res, err = http.Get(reqUrl)
+	}
+	if cmd == "ADD" {
+		// res, err := http.Get(requestURL)
+		fmt.Println("PUT request")
+	} else {
+		res, err = http.Post(reqUrl, "application/json", reader)
+	}
+
+	if err != nil {
+		fmt.Printf("client: could not create request: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("client: got response!\n")
+	fmt.Printf("client: status code: %d\n", res.StatusCode)
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("client: response body: %s\n", resBody)
 }

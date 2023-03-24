@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"os"
 )
-
-
 
 func rawreadField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 	databaseUri, found := os.LookupEnv("DATABASE_URI")
@@ -59,7 +58,6 @@ func rawreadField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 	//fmt.Println(results)
 	return results
 }
-
 
 func readField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 	databaseUri, found := os.LookupEnv("DATABASE_URI")
@@ -133,12 +131,12 @@ func readMany(collection_ string, filter bson.D) []bson.D {
 
 	cursor, err := collection.Find(ctx, filter)
 
+	var results []bson.D
 	err = collection.FindOne(ctx, filter).Decode(&results)
 
 	if err != nil {
 		panic(err)
 	}
-	var results []bson.D
 
 	if err = cursor.All(context.TODO(), &results); err != nil {
 		panic(err)
