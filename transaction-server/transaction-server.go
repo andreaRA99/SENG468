@@ -103,6 +103,22 @@ func main() {
 
 	router.GET("/health", healthcheck)
 
+	// using temp functions and http method to test cli
+	// should be changed appropriately
+	router.POST("/users/:id/buy/commit", commitBuy)
+	router.POST("/users/:id/buy/cancel", cancelBuy)
+	router.POST("/users/:id/sell/commit", commitSell)
+	router.POST("/users/:id/sell/cancel", cancelSell)
+	router.POST("/users/:id/set_buy/:stock/amount/:quantity", setBuyAmount)
+	router.POST("/users/:id/set_buy/cancel/:stock", cancelSetBuy)
+	router.POST("/users/:id/set_buy/trigger/:stock/amount/:quantity", setBuyTrigger)
+	router.POST("/users/:id/set_sell/:stock/amount/:quantity", setSellAmount)
+	router.POST("/users/:id/set_sell/trigger/:stock/amount/:quantity", setSellTrigger)
+	router.POST("/users/:id/set_sell/cancel/:stock", cancelSetSell)
+	router.POST("/users/:id/dumplog/:filename", dumplog)
+	router.POST("/dumplog/:filename", dumplog)
+	router.POST("/users/:id/display_summary", displaySummary)
+
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
 
@@ -462,6 +478,187 @@ func sellStock(c *gin.Context) {
 }
 
 func healthcheck(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+// temp functions to test cli
+func commitBuy(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func cancelBuy(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func commitSell(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func cancelSell(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func setBuyAmount(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func cancelSetBuy(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func setBuyTrigger(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func setSellAmount(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func setSellTrigger(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func cancelSetSell(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func dumplog(c *gin.Context) {
+	// health check code
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	db := c.MustGet("db").(*mongo.Database)
+	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+
+	if err == nil {
+		c.String(http.StatusOK, "ok")
+	} else {
+		c.String(http.StatusInternalServerError, "mongo read unavailable")
+		log.Println(err)
+	}
+}
+
+func displaySummary(c *gin.Context) {
+	// health check code
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	db := c.MustGet("db").(*mongo.Database)
