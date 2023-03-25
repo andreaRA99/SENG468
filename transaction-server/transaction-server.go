@@ -104,8 +104,6 @@ func main() {
 
 	router.POST("/users/:id/buy", buyStock)
 
-	router.POST("/users/:id/buy/commit", commitBuy)
-
 	router.POST("/users/:id/sell/:stock/amount/:quantity", sellStock)
 
 	router.GET("/health", healthcheck)
@@ -497,30 +495,30 @@ func buyStock(c *gin.Context) {
 	//c.IndentedJSON(http.StatusOK, newOrder)
 }
 
-func commitBuy(c *gin.Context) {
-	// 	`POST /users/:id/buy/:stock/:buyid`
-	// **Arguments**
-	// - `"id":string` User ID
-	// - `"stock":string` Stock Symbol
-	// - `"buy":float64` Dollar amount to buy
-	// - `"buyid":int` Order identifier
-	var commitOrder order
+// func commitBuy(c *gin.Context) {
+// 	// 	`POST /users/:id/buy/:stock/:buyid`
+// 	// **Arguments**
+// 	// - `"id":string` User ID
+// 	// - `"stock":string` Stock Symbol
+// 	// - `"buy":float64` Dollar amount to buy
+// 	// - `"buyid":int` Order identifier
+// 	var commitOrder order
 
-	// Calling BindJSON to bind the recieved JSON to new BalDif
-	if err := c.BindJSON(&commitOrder); err != nil {
-		return
-	}
+// 	// Calling BindJSON to bind the recieved JSON to new BalDif
+// 	if err := c.BindJSON(&commitOrder); err != nil {
+// 		return
+// 	}
 
-	for _, o := range orders {
-		if o == commitOrder {
-			// change user balance
-			// add stock to user data
-			//remover order from orders
-			c.IndentedJSON(http.StatusOK, "Found order!")
-		}
-	}
+// 	for _, o := range orders {
+// 		if o == commitOrder {
+// 			// change user balance
+// 			// add stock to user data
+// 			//remover order from orders
+// 			c.IndentedJSON(http.StatusOK, "Found order!")
+// 		}
+// 	}
 
-}
+// }
 
 func sellStock(c *gin.Context) {
 	id := c.Param("id")
