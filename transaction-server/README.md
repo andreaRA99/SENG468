@@ -130,6 +130,7 @@
     "price": 250.01, // current price of stock
     "num_stocks": 1 // number of  stocks buy amount is worth
 }
+```
 
 ## Cancel Set Buy Amount
 `POST /users/setbuy/cancel`
@@ -144,6 +145,7 @@
     "price": 250.01, // current price of stock
     "num_stocks": 1 // number of  stocks buy amount is worth
 }
+```
 
 ## Set Buy Trigger  
 `POST /users/setbuy/trigger`  
@@ -158,6 +160,7 @@
     "price": 250.01, // current price of stock
     "num_stocks": 1 // number of  stocks buy amount is worth
 }
+```
 
 ## Set Sell Amount  
 `POST /users/setsell`  
@@ -173,6 +176,7 @@
     "price": 250.01, // current price of stock
     "num_stocks": 1 // number of  stocks buy amount is worth
 }
+```
 
 ## Cancel Set Sell Amount
 `POST /users/setsell/cancel`
@@ -187,6 +191,7 @@
     "price": 250.01, // current price of stock
     "num_stocks": 1 // number of  stocks buy amount is worth
 }
+```
 
 ## Set Sell Trigger  
 `POST /users/setsell/trigger`  
@@ -197,8 +202,9 @@
 **Response**
 ```json
 {
-`
+
 }
+```
 
 ## Dumplog  
 `POST /dumplog`  
@@ -210,6 +216,7 @@
 {
 
 }
+```
 
 ## Display Summary  
 `POST /displaysummary`  
@@ -220,3 +227,4 @@
 {
  
 }
+```
