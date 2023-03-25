@@ -302,10 +302,6 @@ func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
 	quotePrice, err := strconv.ParseFloat(reply[0], 64)
 	if err != nil {
-		log.Fatalln(err)
-	}
-	quotePrice, err := strconv.ParseFloat(reply[0], 64)
-	if err != nil {
 		panic(err)
 	}
 	timestamp := reply[3]
