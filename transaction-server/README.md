@@ -58,7 +58,6 @@
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"buy":float64` Dollar amount to buy
-- `"buyid":int` Order identifier  
 
 **Response**
 ```json
@@ -71,9 +70,7 @@
 ```
 
 ## Cancel Buy  
-`DELETE /users/buy/cancel`  
-**Arguments**
-- `"id":string` User ID 
+`DELETE /users/:id/buy/cancel`  
 **Response**
 <!-- -`404 Not Found` -->
 
@@ -95,7 +92,7 @@
 ```
 
 ## Commit Sell  
-`POST /users/sell`  
+`POST /users/sell/commit`  
 **Arguments**
 - `"id":string` User ID 
 
@@ -111,8 +108,6 @@
 
 ## Cancel Sell  
 `DELETE /users/:id/sell/cancel` 
-**Arguments**
-- `"id":string` User ID  
 **Response**
 <!-- -`404 Not Found` -->
 
@@ -124,28 +119,12 @@
 - `"amount":float64` Dollar amount to sell  
 
 **Response**
-```json
-{
-    "stock_symbol": "APPL",
-    "price": 250.01, // current price of stock
-    "num_stocks": 1 // number of  stocks buy amount is worth
-}
-```
+- `200 OK` on succes
 
 ## Cancel Set Buy Amount
-`POST /users/setbuy/cancel`
-**Arguments**
-- `"id":string` User ID 
-- `"stock":string` Stock Symbol
-
+`DELETE /users/:id/setbuy/:stock/cancel`
 **Response**
-```json
-{
-    "stock_symbol": "APPL",
-    "price": 250.01, // current price of stock
-    "num_stocks": 1 // number of  stocks buy amount is worth
-}
-```
+- `200 OK` on succes
 
 ## Set Buy Trigger  
 `POST /users/setbuy/trigger`  
@@ -154,13 +133,7 @@
 - `"stock":string` Stock Symbol
 - `"amount":float64` Dollar amount 
 **Response**
-```json
-{
-    "stock_symbol": "APPL",
-    "price": 250.01, // current price of stock
-    "num_stocks": 1 // number of  stocks buy amount is worth
-}
-```
+- `200 OK` on succes
 
 ## Set Sell Amount  
 `POST /users/setsell`  
@@ -168,30 +141,13 @@
 - `"id":string` User ID 
 - `"stock":string` Stock Symbol
 - `"amount":float64` Dollar amount to sell  
-
 **Response**
-```json
-{
-    "stock_symbol": "APPL",
-    "price": 250.01, // current price of stock
-    "num_stocks": 1 // number of  stocks buy amount is worth
-}
-```
+- `200 OK` on succes
 
 ## Cancel Set Sell Amount
-`POST /users/setsell/cancel`
-**Arguments**
-- `"id":string` User ID 
-- `"stock":string` Stock Symbol
-
+`DELETE /users/:id/setsell/:stock/cancel`
 **Response**
-```json
-{
-    "stock_symbol": "APPL",
-    "price": 250.01, // current price of stock
-    "num_stocks": 1 // number of  stocks buy amount is worth
-}
-```
+- `200 OK` on succes
 
 ## Set Sell Trigger  
 `POST /users/setsell/trigger`  
@@ -200,11 +156,7 @@
 - `"stock":string` Stock Symbol
 - `"amount":float64` Dollar amount 
 **Response**
-```json
-{
-
-}
-```
+- `200 OK` on succes
 
 ## Dumplog  
 `POST /dumplog`  
@@ -214,17 +166,13 @@
 **Response**
 ```json
 {
-
 }
 ```
 
 ## Display Summary  
-`POST /displaysummary`  
-**Arguments**
-- `"id":string` User ID 
+`GET /displaysummary/:id`  
 **Response**
 ```json
 {
- 
 }
 ```
