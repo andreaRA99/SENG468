@@ -126,30 +126,24 @@ func parseLine(line string) Cmd {
 	cmd_arr := strings.Split(line_arr[1], ",")
 	command := cmd_arr[0]
 
-	if command == "ADD" {
+	switch command {
+	case "ADD":
 		return Cmd{Command: command, Id: cmd_arr[1], Amount: cmd_arr[2]}
-
-	} else if command == "BUY" || command == "SELL" || command == "SET_BUY_AMOUNT" || command == "SET_BUY_TRIGGER" || command == "SET_SELL_AMOUNT" || command == "SET_SELL_TRIGGER" {
+	case "BUY", "SELL", "SET_BUY_AMOUNT", "SET_BUY_TRIGGER", "SET_SELL_AMOUNT", "SET_SELL_TRIGGER":
 		return Cmd{Command: command, Id: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
-
-	} else if command == "QUOTE" || command == "CANCEL_SET_BUY" || command == "CANCEL_SET_SELL" {
+	case "QUOTE", "CANCEL_SET_BUY", "CANCEL_SET_SELL":
 		return Cmd{Command: command, Id: cmd_arr[1], Stock: cmd_arr[2]}
-
-	} else if command == "COMMIT_BUY" || command == "COMMIT_SELL" || command == "CANCEL_BUY" || command == "CANCEL_SELL" || command == "DISPLAY_SUMMARY" {
+	case "COMMIT_BUY", "COMMIT_SELL", "CANCEL_BUY", "CANCEL_SELL", "DISPLAY_SUMMARY":
 		return Cmd{Command: command, Id: cmd_arr[1]}
-
-	} else if command == "DUMPLOG" {
+	case "DUMPLOG":
 		if len(cmd_arr) == 2 {
 			return Cmd{Command: command, Filename: cmd_arr[1]}
-		} else {
+		} else if len(cmd_arr) == 3 {
 			return Cmd{Command: command, Id: cmd_arr[1], Filename: cmd_arr[2]}
 		}
-
-	} else {
-		fmt.Printf("Command received: %s, line: %s\n", command, line)
-		panic("Unknown command received")
-
 	}
+	fmt.Printf("Command received: %s, line: %s\n", command, line)
+	panic("Unknown command received")
 }
 
 // Function sends request to server to execute command given
