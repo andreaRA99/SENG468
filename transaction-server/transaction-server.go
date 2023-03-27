@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -40,7 +41,7 @@ type holding struct {
 }
 
 type balanceDif struct {
-	//ID     string
+	ID     string  `json:"id"`
 	Amount float64 `json:"amount"`
 }
 
@@ -54,6 +55,7 @@ type c_bal struct {
 }
 
 type quote struct {
+	//ID    string
 	Stock string
 	Price float64
 	CKey  string // Crytohraphic key
@@ -64,10 +66,13 @@ type order struct {
 	ID     string  `json:"id"`
 	Stock  string  `json: "stock"`
 	Amount float64 `json:"amount"`
-	Buy_id string  `json:"buy_id"`
+	Price  float64
+	Qty    int
+	//Buy_id string  `json:"buy_id"`
 	// figure out timeout feature
 }
 
+var quotes = []quote{}
 var orders = []order{}
 
 var logfile = []string{} //WILL BE MOVED TO DB
@@ -93,25 +98,17 @@ func main() {
 	})
 
 	router.GET("/users", getAll) // Do we even need?? Not really
-
 	router.GET("/users/:id", getAccount)
-
-	//router.POST("/newuser", addAccount) Migh be used if we do sign up
-
-	router.PUT("/users/:id/add", addBalance)
-
-	router.GET("/users/:id/quote/:stock", getQuote)
-
-	router.POST("/users/:id/buy", buyStock)
-
+	router.PUT("/users/addBal", addBalance)
+	router.GET("/users/:id/quote/:stock", Quote)
+	router.POST("/users/buy", buyStock)
+	router.POST("/users/:id/buy/commit", commitBuy)
 	router.POST("/users/:id/sell/:stock/amount/:quantity", sellStock)
 
 	router.GET("/health", healthcheck)
 
 	// using temp functions and http method to test cli
 	// should be changed appropriately
-
-	router.POST("/users/:id/buy/commit", commitBuy)
 	router.POST("/users/:id/buy/cancel", cancelBuy)
 	router.POST("/users/:id/sell/commit", commitSell)
 	router.POST("/users/:id/sell/cancel", cancelSell)
@@ -125,8 +122,10 @@ func main() {
 	router.POST("/dumplog/:filename", dumplog)
 	router.POST("/users/:id/display_summary", displaySummary)
 	// GET RID OF LATER, FOR DEBUGGING PURPOSES
+
 	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
+	router.GET("/quotes", getQuotes)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -155,6 +154,10 @@ func main() {
 	log.Fatal(err)
 }
 
+func getQuotes(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, quotes)
+}
+
 func getOrders(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, orders)
 }
@@ -167,6 +170,25 @@ func getAll(c *gin.Context) {
 	// Bad on performance
 	r := readMany("users", bson.D{})
 	c.IndentedJSON(http.StatusOK, r)
+}
+
+func exists(ID string) bool {
+	r := readOne("users", bson.D{{"user_id", ID}})
+	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
+
+	if !reflect.DeepEqual(r, n) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func createAcc(ID string) {
+	// Else account not found
+	err := insert("users", bson.D{{"user_id", ID}})
+	if err != "ok" {
+		panic(err)
+	}
 }
 
 func getAccount(c *gin.Context) {
@@ -188,85 +210,33 @@ func getAccount(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "success")
 }
 
-// func addAccount(id string) account {
-// 	// NOT CURRENTLY USED
-// 	var newAccount account
-// 	newAccount.ID = id
-// 	newAccount.Balance = 0
-
-// 	accounts = append(accounts, newAccount)
-// 	return newAccount
-// }
-
-// ADD ACCOUNT IS NEVER CALLED BY A REQUEST DIRECTLY
-// func addAccount(c *gin.Context) {
-// 	var newAccount account
-
-// 	// Call BindJSON to bind the received JSON to newAccount.
-// 	if err := c.BindJSON(&newAccount); err != nil {
-// 		return
-// 	}
-// 	// Add the new account to the slice.
-// 	accounts = append(accounts, newAccount)
-// 	c.IndentedJSON(http.StatusCreated, newAccount)
-// }
-
-// THIS CODE MIGHT BE USEFUL IF WE DO SIGN UP FEATURE
-// func addAccount(c *gin.Context) {
-// 	var newAccount account
-
-// 	// Call BindJSON to bind the received JSON to newAccount.
-// 	if err := c.BindJSON(&newAccount); err != nil {
-// 		return
-// 	}
-// 	// Add the new account to the slice.
-// 	accounts = append(accounts, newAccount)
-// 	c.IndentedJSON(http.StatusCreated, newAccount)
-// }
-
-// addBalance() USAGE:
-// curl http://localhost:8080/users/01/add \
-// --include --header \
-// "Content-Type: application/json" \
-// --request "PUT" --data \
-// '{"amount": 1}'
-
 func addBalance(c *gin.Context) {
-
-	id := c.Param("id")
 	var newBalDif balanceDif
-	//var theAcc account
 
 	// Calling BindJSON to bind the recieved JSON to new BalDif
 	if err := c.BindJSON(&newBalDif); err != nil {
 		return
 	}
 
-	// LOGGING USER COMMAND
-	// timestamp-server-transaction-command-username-funds
+	// LOGGING USER COMMAND: timestamp-server-transaction-command-username-funds
 	now := time.Now()
 	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
 	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " ADD " + id + fmt.Sprintf(" %f ", newBalDif.Amount)
+	var log_entry = now.String() + " own_server " + t_num + " ADD " + newBalDif.ID + fmt.Sprintf(" %f ", newBalDif.Amount)
 	logfile = append(logfile, log_entry)
-	//log.Println(log_entry)
 
-	u := updateOne("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", newBalDif.Amount}}, "$inc")
+	// CREATING ACCOUNT IT DOES NOT EXIST
+	if !exists(newBalDif.ID) {
+		createAcc(newBalDif.ID)
+	}
 
+	u := updateOne("users", bson.D{{"user_id", newBalDif.ID}}, bson.D{{"cash_balance", newBalDif.Amount}}, "$inc")
 	if u != "ok" {
 		panic(u)
 	}
 
 	// LOGGING ACCOUNT CHANGES
 	//timestamp-server-transaction-action-username-funds
-	// r := readOne("users", bson.D{{"user_id", id}})
-	// n := bson.D{{"none", "none"}} // to compare and make sure not empty response
-
-	// if !reflect.DeepEqual(r, n) {
-	// 	c.IndentedJSON(http.StatusOK, r)
-	// 	return
-	// }
-
 	// now = time.Now()
 	// t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
 	// transaction_counter += 1
@@ -275,45 +245,60 @@ func addBalance(c *gin.Context) {
 	// log.Println(log_entry)
 
 	c.IndentedJSON(http.StatusOK, u)
-
 }
 
-func getQuote(c *gin.Context) {
+func fetchQuote(id string, stock string) quote {
 	var newQuote quote
 
-	// initializing stuff
-	id := c.Param("id")
-	newQuote.Stock = c.Param("stock")
+	// check if quote for specified stock exists
+	for _, o := range quotes {
+		if o.Stock == stock {
+			return o
+		}
+	}
 
+	// else:  HITTING QUOTE SERVER
+	// Currently: Read around type cache, do we want read through??
 	var tmstmp string
+	newQuote.Price, tmstmp, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id) //simulation of quote hit
+	newQuote.Stock = stock
 
-	newQuote.Price, tmstmp, newQuote.CKey = getQuoteLocal(newQuote.Stock, id)
+	quotes = append(quotes, newQuote)
 
-	fmt.Println(tmstmp)
+	// LOGGING QUOTE SERVER HIT: timestamp-server-tNum-price-stockSymbol-username-quoteServerTime-ck
+	now := time.Now()
+	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
+	transaction_counter += 1
+	log_entry := now.String() + " own_server " + t_num + fmt.Sprintf("%f", newQuote.Price) + newQuote.Stock + id + tmstmp + newQuote.CKey
+	logfile = append(logfile, log_entry)
+
+	return newQuote
+}
+
+func Quote(c *gin.Context) {
+	//var newQuote quote
+
+	id := c.Param("id")
+	stock := c.Param("stock")
 
 	// LOGGING FOR COMMAND: timestamp-server-transaction-command-username-stocksymbol
 	now := time.Now()
 	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
 	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " QUOTE " + id + newQuote.Stock
+	var log_entry = now.String() + " own_server " + t_num + " QUOTE " + id + stock
 	logfile = append(logfile, log_entry)
-	log.Println(log_entry)
 
-	c.IndentedJSON(http.StatusOK, "INCOMPLETE")
+	theQuote := fetchQuote(id, stock)
 
+	// newQuote should be sent to cache
+	c.IndentedJSON(http.StatusOK, theQuote)
 }
 
-func getQuoteLocal(sym string, username string) (float64, string, string) {
-	// WILL BE DELETED LATER
-	// JUST SO THAT THERE IS A RETURN VALUE
-
-	// Seems unecesary to send back and forth user and stock
-	//return (rand.Float64() * 300), username, "thisISaCRYPTOkey"
+func mockQuoteServerHit(sym string, username string) (float64, string, string) {
 	return rand.Float64() * 300, " thisisatimestamp ", " thisISaCRYPTOkey "
 }
 
 func getQuoteTEMP(sym string, username string) (float64, string, string) {
-
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -361,22 +346,13 @@ func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	return quotePrice, timestamp, cryptKey
 }
 
-//	curl http://localhost:8080/users/01/buy \
-//	    --include --header \
-//	    "Content-Type: application/json" \
-//	    --request "POST" --data \
-//	    '{"stock": "AMG", "amount":100}'
-//
-// SHOULD NOT CHANGE ACCOUNT
 func buyStock(c *gin.Context) {
 	var newOrder order
 
-	// Calling BindJSON to bind the recieved JSON to new BalDif
+	// Calling BindJSON to bind the recieved JSON to an order
 	if err := c.BindJSON(&newOrder); err != nil {
 		return
 	}
-
-	newOrder.ID = c.Param("id")
 
 	// LOGGING USER COMMAND
 	// timestamp-server-transaction-command-username
@@ -385,140 +361,81 @@ func buyStock(c *gin.Context) {
 	transaction_counter += 1
 	var log_entry = now.String() + " own_server " + t_num + " BUY " + newOrder.ID
 	logfile = append(logfile, log_entry)
-	//log.Println(log_entry)
 
 	// CHECK IF USER HAS ENOUGH BALANCE
 	r := readField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
-
 	n := bson.D{{"none", "none"}}
 
 	if reflect.DeepEqual(r, n) {
 		panic("ERROR")
 	}
 
-	// Check if user has enough balance
-	//afford := false
+	// This would ideally go after checking if accoutn has enough balance
+	// Fetching most current price for that stock
+	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
+	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
+	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
+
+	// Should refactor, very redundant code
 	switch v := r[0][1].Value.(type) {
 	case float64:
-		{
-			fmt.Println("FLOATING")
-			if v > newOrder.Amount {
-				// DO NOT WANT TO MAKE CHANGE TO ACCOUT BAL YET
-				//r := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", v - newOrder.Amount}}, "$set")
-				//THIS SHOULD PRBLY GO IN AN ORDER CACHE??
-				//afford = true
-
-				newOrder.Buy_id = newOrder.ID + strconv.Itoa(orders_counter)
-				orders = append(orders, newOrder)
-				c.IndentedJSON(http.StatusOK, "AFFORD")
-
-				// MAYBE STORE THIS IN CACHE??
-				// i := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", newOrder.Stock}, {"quantity", quantity}, {"pps", pps}}}}, "$push")
-				// if i != "ok" {
-				// 	panic("PUSH ERROR")
-				// }
-				// if r != "ok" {
-				// 	panic(r)
-				// }
-				//c.IndentedJSON(http.StatusBadRequest, accounts[index])
-				return
-			} else {
-				c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-			}
+		//{
+		if v > newOrder.Amount {
+			orders = append(orders, newOrder)
+			c.IndentedJSON(http.StatusOK, newOrder)
+			return
+		} else {
+			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
 	case int64:
-		{
-			a := float64(v)
-			fmt.Println(a)
-			fmt.Println(newOrder.Amount)
-			if a > newOrder.Amount {
-				// DO NOT WANT TO COMMIT CHANGES YET
-				// fmt.Println("YES")
-				// r := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", a - newOrder.Amount}}, "$set")
-				//THIS SHOULD PRBLY GO IN AN ORDER CACHE??
-				//afford = true
-
-				newOrder.Buy_id = newOrder.ID + strconv.Itoa(orders_counter)
-				orders = append(orders, newOrder)
-				c.IndentedJSON(http.StatusOK, "AFFORD")
-
-				// STORE MAYBE IN CACHE
-				// i := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", newOrder.Stock}, {"quantity", quantity}, {"pps", pps}}}}, "$push")
-				// if i != "ok" {
-				// 	panic("PUSH ERROR")
-				// }
-				// if r != "ok" {
-				// 	panic(r)
-				// }
-				//c.IndentedJSON(http.StatusBadRequest, accounts[index])
-				return
-			} else {
-				c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-			}
+		a := float64(v)
+		if a > newOrder.Amount {
+			orders = append(orders, newOrder)
+			c.IndentedJSON(http.StatusOK, newOrder)
+			return
+		} else {
+			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
 	case int32:
-		{
-			a := float64(v)
-			fmt.Println(a)
-			fmt.Println(newOrder.Amount)
-			if a > newOrder.Amount {
-				// fmt.Println("INT32")
-				// r := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", a - newOrder.Amount}}, "$set")
-				//THIS SHOULD PRBLY GO IN AN ORDER CACHE??
-				//afford = true
+		a := float64(v)
+		if a > newOrder.Amount {
+			orders = append(orders, newOrder)
+			c.IndentedJSON(http.StatusOK, newOrder)
+			return
+		} else {
+			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
+		}
+	}
+}
 
-				newOrder.Buy_id = newOrder.ID + strconv.Itoa(orders_counter)
-				orders = append(orders, newOrder)
-				c.IndentedJSON(http.StatusOK, "AFFORD")
+func commitBuy(c *gin.Context) {
+	var commitOrder order
 
-				// STORE MAYBE IN CACHE
-				// i := updateOne("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", newOrder.Stock}, {"quantity", quantity}, {"pps", pps}}}}, "$push")
-				// if i != "ok" {
-				// 	panic("PUSH ERROR")
-				// }
-				// if r != "ok" {
-				// 	panic(r)
-				// }
-				//c.IndentedJSON(http.StatusBadRequest, accounts[index])
-				return
-			} else {
-				c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
+	// Calling BindJSON to bind the recieved JSON to new BalDif
+	if err := c.BindJSON(&commitOrder); err != nil {
+		return
+	}
+
+	// Getting most recent order that took place within last 60 secs
+	// Queue? Cache?
+	for _, o := range orders {
+		if o.ID == commitOrder.ID && o.Stock == commitOrder.Stock {
+			// change user balance
+			r := updateOne("users", bson.D{{"user_id", commitOrder.ID}}, bson.D{{"cash_balance", -o.Amount}}, "$inc")
+			// add stock to user data
+			i := updateOne("users", bson.D{{"user_id", commitOrder.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", commitOrder.Stock}, {"quantity", o.Qty}}}}, "$push")
+			if i != "ok" {
+				panic("PUSH ERROR")
 			}
+			if r != "ok" {
+				panic(r)
+			}
+			//remover order from orders
+			c.IndentedJSON(http.StatusOK, r)
 		}
 	}
 
-	// User has enough balance, proceed creating order
-	//buy_id := len(orders) + 1
-	//newOrder.Buy_id = buy_id
-	//orders = append(orders, newOrder)
-	//return
-	//c.IndentedJSON(http.StatusOK, newOrder)
 }
-
-// func commitBuy(c *gin.Context) {
-// 	// 	`POST /users/:id/buy/:stock/:buyid`
-// 	// **Arguments**
-// 	// - `"id":string` User ID
-// 	// - `"stock":string` Stock Symbol
-// 	// - `"buy":float64` Dollar amount to buy
-// 	// - `"buyid":int` Order identifier
-// 	var commitOrder order
-
-// 	// Calling BindJSON to bind the recieved JSON to new BalDif
-// 	if err := c.BindJSON(&commitOrder); err != nil {
-// 		return
-// 	}
-
-// 	for _, o := range orders {
-// 		if o == commitOrder {
-// 			// change user balance
-// 			// add stock to user data
-// 			//remover order from orders
-// 			c.IndentedJSON(http.StatusOK, "Found order!")
-// 		}
-// 	}
-
-// }
 
 func sellStock(c *gin.Context) {
 	id := c.Param("id")
@@ -611,21 +528,6 @@ func healthcheck(c *gin.Context) {
 }
 
 // temp functions to test cli
-func commitBuy(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
-
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
-	}
-}
-
 func cancelBuy(c *gin.Context) {
 	// health check code
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
