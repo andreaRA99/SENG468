@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -15,11 +16,11 @@ import (
 
 // Cmd struct is a representation of an isolated command executed by a user
 type Cmd struct {
-	Command  string `json:"-"`
-	Id       string `json:"id"`
-	Stock    string `json:"stock"`
-	Amount   string `json:"amount"`
-	Filename string `json:"filename"`
+	Command  string  `json:"-"`
+	Id       string  `json:"id"`
+	Stock    string  `json:"stock"`
+	Amount   float64 `json:"amount"`
+	Filename string  `json:"filename"`
 }
 
 func main() {
@@ -54,7 +55,10 @@ func main() {
 				command := strings.ToUpper(c.String("cmd"))
 				id := c.String("id")
 				stock := strings.ToUpper(c.String("stock"))
-				amount := c.String("amount")
+				amount, err := strconv.ParseFloat(c.String("amount"), 64)
+				if err != nil {
+					panic(err)
+				}
 				filename := c.String("filename")
 
 				cmd := Cmd{Command: command, Id: id, Stock: stock, Amount: amount, Filename: filename}
@@ -128,9 +132,17 @@ func parseLine(line string) Cmd {
 
 	switch command {
 	case "ADD":
-		return Cmd{Command: command, Id: cmd_arr[1], Amount: cmd_arr[2]}
+		amount, err := strconv.ParseFloat(cmd_arr[2], 64)
+		if err != nil {
+			panic(err)
+		}
+		return Cmd{Command: command, Id: cmd_arr[1], Amount: amount}
 	case "BUY", "SELL", "SET_BUY_AMOUNT", "SET_BUY_TRIGGER", "SET_SELL_AMOUNT", "SET_SELL_TRIGGER":
-		return Cmd{Command: command, Id: cmd_arr[1], Stock: cmd_arr[2], Amount: cmd_arr[3]}
+		amount, err := strconv.ParseFloat(cmd_arr[3], 64)
+		if err != nil {
+			panic(err)
+		}
+		return Cmd{Command: command, Id: cmd_arr[1], Stock: cmd_arr[2], Amount: amount}
 	case "QUOTE", "CANCEL_SET_BUY", "CANCEL_SET_SELL":
 		return Cmd{Command: command, Id: cmd_arr[1], Stock: cmd_arr[2]}
 	case "COMMIT_BUY", "COMMIT_SELL", "CANCEL_BUY", "CANCEL_SELL", "DISPLAY_SUMMARY":
@@ -148,6 +160,7 @@ func parseLine(line string) Cmd {
 
 // Function sends request to server to execute command given
 func executeCmd(cmd Cmd) {
+	// fmt.Println(cmd)
 	var req *http.Request
 	var err error
 
@@ -202,11 +215,13 @@ func executeCmd(cmd Cmd) {
 		panic(err)
 	}
 	defer res.Body.Close()
+	// fmt.Printf("Req: %s %s\n", req.Host, req.URL.Path)
+
 	// fmt.Printf("Got response code: %d\n", res.StatusCode)
 
 	// resBody, err := ioutil.ReadAll(res.Body)
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// fmt.Printf("Response body: %s\n", resBody)
+	// fmt.Printf("Response body: %s\n\n", resBody)
 }
