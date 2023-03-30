@@ -142,6 +142,8 @@ func main() {
 
 	db = mongoClient.Database("daytrading")
 
+	connectToRedcache()
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

@@ -7,14 +7,25 @@ services:
       - type: tmpfs
         target: /tmp
 
+  redis: 
+    container_name: redisCache
+    image: redis
+    init: true
+    ports:
+      - "6379:6379"
+
   transaction-server:
     build: ./transaction-server/
     ports:
       - target: 8080
         published: 8080
         protocol: tcp
+    depends_on:
+      - redis
     read_only: true
     init: true
     command: --bind :8080
     environment:
       DATABASE_URI: mongodb://db/?directConnection=true
+  
+  
