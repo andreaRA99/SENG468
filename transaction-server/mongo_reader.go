@@ -133,7 +133,6 @@ func readMany(collection_ string, filter bson.D) []bson.D {
 	cursor, err := collection.Find(ctx, filter)
 
 	var results []bson.D
-	err = collection.FindOne(ctx, filter).Decode(&results)
 
 	if err != nil {
 		panic(err)

@@ -103,25 +103,26 @@ func main() {
 	router.PUT("/users/addBal", addBalance)
 	router.GET("/users/:id/quote/:stock", Quote)
 	router.POST("/users/buy", buyStock)
-	router.POST("/users/:id/buy/commit", commitBuy)
+	router.POST("/users/buy/commit", commitBuy)
 	router.POST("/users/sell", sellStock)
 
 	router.GET("/health", healthcheck)
 
 	// using temp functions and http method to test cli
 	// should be changed appropriately
-	router.POST("/users/:id/buy/cancel", cancelBuy)
-	router.POST("/users/:id/sell/commit", commitSell)
-	router.POST("/users/:id/sell/cancel", cancelSell)
-	router.POST("/users/:id/set_buy/:stock/amount/:quantity", setBuyAmount)
-	router.POST("/users/:id/set_buy/cancel/:stock", cancelSetBuy)
-	router.POST("/users/:id/set_buy/trigger/:stock/amount/:quantity", setBuyTrigger)
-	router.POST("/users/:id/set_sell/:stock/amount/:quantity", setSellAmount)
-	router.POST("/users/:id/set_sell/trigger/:stock/amount/:quantity", setSellTrigger)
-	router.POST("/users/:id/set_sell/cancel/:stock", cancelSetSell)
-	router.POST("/users/:id/dumplog/:filename", dumplog)
+	router.DELETE("/users/:id/buy/cancel", cancelBuy)
+	router.POST("/users/sell/commit", commitSell)
+	router.DELETE("/users/:id/sell/cancel", cancelSell)
+	router.POST("/users/set_buy", setBuyAmount)
+	router.DELETE("/users/:id/set_buy/:stock/cancel", cancelSetBuy)
+	router.POST("/users/set_buy/trigger", setBuyTrigger)
+	router.POST("/users/set_sell", setSellAmount)
+	router.DELETE("/users/:id/set_sell/:stock/cancel", cancelSetSell)
+	router.POST("/users/set_sell/trigger", setSellTrigger)
+
+	router.POST("/dumplog", dumplog)
 	router.POST("/dumplog/:filename", dumplog)
-	router.POST("/users/:id/display_summary", displaySummary)
+	router.GET("/display_summary/:id", displaySummary)
 	// GET RID OF LATER, FOR DEBUGGING PURPOSES
 
 	router.GET("/log", logAll)
@@ -379,6 +380,10 @@ func buyStock(c *gin.Context) {
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
+	if newOrder.Amount == 0 {
+		c.IndentedJSON(http.StatusForbidden, "Cannot afford stock with given amount")
+		return
+	}
 
 	// Should refactor, very redundant code
 	switch v := r[0][1].Value.(type) {
@@ -425,9 +430,9 @@ func commitBuy(c *gin.Context) {
 	for _, o := range buys {
 		if o.ID == commitOrder.ID {
 			// change user balance
-			r := updateOne("users", bson.D{{"user_id", commitOrder.ID}}, bson.D{{"cash_balance", -o.Amount}}, "$inc")
+			r := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"cash_balance", -o.Amount}}, "$inc")
 			// add stock to user data
-			i := updateOne("users", bson.D{{"user_id", commitOrder.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", commitOrder.Stock}, {"quantity", o.Qty}}}}, "$inc")
+			i := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", o.Stock}, {"quantity", o.Qty}}}}, "$inc")
 			if i != "ok" {
 				panic("PUSH ERROR")
 			}
