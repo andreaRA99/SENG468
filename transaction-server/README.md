@@ -45,9 +45,11 @@
 **Response**
 ```json
 {
+    "id": "mike123"
     "stock_symbol": "APPL",
+    "amount"
     "price": 250.01, // last quoted to specific user or in general?? probably need to check how old quote is...
-    "num_stocks": 1, // number of  stocks buy amount is worth, DOES THIS NEED BE INT??
+    "Qty": 1, // number of  stocks buy amount is worth, DOES THIS NEED BE INT??
     //"buy_id": 1 // some way to identify orders and time them out, int for simplicity but can be diff
 }
 ```
