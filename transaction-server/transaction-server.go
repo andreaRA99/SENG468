@@ -142,7 +142,9 @@ func main() {
 
 	db = mongoClient.Database("daytrading")
 
-	connectToRedcache()
+	connectToRedisCache()
+	SetKeyWithExpirationInSecs("srock", "500", 0)
+	GetKeyWithStringVal("srock")
 
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
