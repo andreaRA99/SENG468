@@ -23,7 +23,7 @@ func updateOne(collection_ string, who bson.D, with bson.D, _type string) string
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
-		panic(err)
+		// panic(err) // next line unreachable with this here
 		return "Failed to Update Value"
 	}
 	defer client.Disconnect(ctx)
@@ -32,7 +32,7 @@ func updateOne(collection_ string, who bson.D, with bson.D, _type string) string
 	_, err = collection.UpdateOne(ctx, who, update)
 	if err != nil {
 		log.Fatal(err)
-		panic(err)
+		// panic(err) // next line unreachable with this here
 		return "Failed to Update Value"
 	}
 
@@ -50,7 +50,7 @@ func insert(collection_ string, data bson.D) string {
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
-		panic(err)
+		// panic(err) // next line unreachable with this here
 		return "Failed to Update Value"
 	}
 	defer client.Disconnect(ctx)
