@@ -22,9 +22,8 @@ services:
         protocol: tcp
     depends_on:
       - redis
-    read_only: true
-    depends_on:
       - db
+    read_only: true
     init: true
     command: --bind :8080
     environment:

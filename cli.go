@@ -16,7 +16,7 @@ import (
 
 // Cmd struct is a representation of an isolated command executed by a user
 type Cmd struct {
-	Command  string  `json:"-"`
+	Command  string  `json:"cmd"`
 	Id       string  `json:"id"`
 	Stock    string  `json:"stock"`
 	Amount   float64 `json:"amount"`

@@ -169,7 +169,8 @@ func getOrders(c *gin.Context) {
 }
 
 func logAll(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, logfile)
+	r := readMany("logs", bson.D{})
+	c.IndentedJSON(http.StatusOK, r)
 }
 
 func getAll(c *gin.Context) {
@@ -224,12 +225,9 @@ func addBalance(c *gin.Context) {
 		return
 	}
 
-	// LOGGING USER COMMAND: timestamp-server-transaction-command-username-funds
-	now := time.Now()
-	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " ADD " + newBalDif.ID + fmt.Sprintf(" %f ", newBalDif.Amount)
-	logfile = append(logfile, log_entry)
+	// Logging user command
+	addCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newBalDif.ID, Funds: newBalDif.Amount}
+	logEvent(addCmdLog)
 
 	// CREATING ACCOUNT IT DOES NOT EXIST
 	if !exists(newBalDif.ID) {
@@ -246,14 +244,9 @@ func addBalance(c *gin.Context) {
 		c.IndentedJSON(http.StatusForbidden, "Enter valid amount")
 	}
 
-	// LOGGING ACCOUNT CHANGES
-	//timestamp-server-transaction-action-username-funds
-	// now = time.Now()
-	// t_num = strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	// transaction_counter += 1
-	// log_entry = now.String() + " own_server" + t_num + " add " + id + strconv.Itoa(bal)
-	// logfile = append(logfile, log_entry)
-	// log.Println(log_entry)
+	// Logging account changes
+	addDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "add", Username: newBalDif.ID, Funds: newBalDif.Amount}
+	logEvent(addDBLog)
 }
 
 func fetchQuote(id string, stock string) quote {
@@ -274,12 +267,10 @@ func fetchQuote(id string, stock string) quote {
 
 	quotes = append(quotes, newQuote)
 
-	// LOGGING QUOTE SERVER HIT: timestamp-server-tNum-price-stockSymbol-username-quoteServerTime-ck
-	now := time.Now()
-	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	transaction_counter += 1
-	log_entry := now.String() + " own_server " + t_num + fmt.Sprintf("%f", newQuote.Price) + newQuote.Stock + id + tmstmp + newQuote.CKey
-	logfile = append(logfile, log_entry)
+	// Logging quote server hit
+	qsTime, _ := strconv.Atoi(tmstmp)
+	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Price: newQuote.Price, Stock: stock, Username: id, QSTime: qsTime, Cryptokey: newQuote.CKey}
+	logEvent(QSHitLog)
 
 	return newQuote
 }
@@ -290,12 +281,9 @@ func Quote(c *gin.Context) {
 	id := c.Param("id")
 	stock := c.Param("stock")
 
-	// LOGGING FOR COMMAND: timestamp-server-transaction-command-username-stocksymbol
-	now := time.Now()
-	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " QUOTE " + id + stock
-	logfile = append(logfile, log_entry)
+	// Logging user command
+	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: id, Stock: stock}
+	logEvent(quoteCmdLog)
 
 	theQuote := fetchQuote(id, stock)
 
@@ -363,13 +351,9 @@ func buyStock(c *gin.Context) {
 		return
 	}
 
-	// LOGGING USER COMMAND
-	// timestamp-server-transaction-command-username
-	now := time.Now()
-	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " BUY " + newOrder.ID
-	logfile = append(logfile, log_entry)
+	// Logging user command
+	buyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
+	logEvent(buyCmdLog)
 
 	// CHECK IF USER HAS ENOUGH BALANCE
 	r := readField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
@@ -433,6 +417,11 @@ func commitBuy(c *gin.Context) {
 	// Queue? Cache?
 	for _, o := range buys {
 		if o.ID == commitOrder.ID {
+			// would prefer logging outside loop but need order amount value
+			// Logging user command
+			commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: commitOrder.ID, Funds: o.Amount}
+			logEvent(commitBuyCmdLog)
+
 			// change user balance
 			r := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"cash_balance", -o.Amount}}, "$inc")
 			// add stock to user data
@@ -443,6 +432,11 @@ func commitBuy(c *gin.Context) {
 			if r != "ok" {
 				panic(r)
 			}
+
+			// Logging account changes
+			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "remove", Username: commitOrder.ID, Funds: o.Amount}
+			logEvent(commitBuyDBLog)
+
 			//remover order from orders
 			c.IndentedJSON(http.StatusOK, r)
 		}
@@ -474,13 +468,9 @@ func sellStock(c *gin.Context) {
 		return
 	}
 
-	// LOGGING USER COMMAND
-	// timestamp-server-transaction-command-username
-	now := time.Now()
-	t_num := strconv.Itoa(transaction_counter) //Is there way to make this global with pointers??
-	transaction_counter += 1
-	var log_entry = now.String() + " own_server " + t_num + " SELL " + newOrder.ID
-	logfile = append(logfile, log_entry)
+	// Logging user command
+	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TNum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
+	logEvent(sellCmdLog)
 
 	y := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
 
@@ -563,6 +553,11 @@ func commitSell(c *gin.Context) {
 	// Queue? Cache?
 	for _, o := range sells {
 		if o.ID == commitOrder.ID {
+			// would prefer logging outside loop but need order amount value
+			// Logging user command
+			commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: commitOrder.ID, Funds: commitOrder.Amount}
+			logEvent(commitSellCmdLog)
+
 			// change user balance
 			r := updateOne("users", bson.D{{"user_id", commitOrder.ID}}, bson.D{{"cash_balance", +commitOrder.Amount}}, "$inc")
 			// add stock to user data
@@ -573,6 +568,11 @@ func commitSell(c *gin.Context) {
 			if r != "ok" {
 				panic(r)
 			}
+
+			// Logging account changes
+			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "add", Username: commitOrder.ID, Funds: commitOrder.Amount}
+			logEvent(commitBuyDBLog)
+
 			//remover order from orders
 			c.IndentedJSON(http.StatusOK, r)
 		}
