@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
@@ -121,7 +122,6 @@ func main() {
 	router.POST("/users/set_sell/trigger", setSellTrigger)
 
 	router.POST("/dumplog", dumplog)
-	router.POST("/dumplog/:filename", dumplog)
 	router.GET("/display_summary/:id", displaySummary)
 	// GET RID OF LATER, FOR DEBUGGING PURPOSES
 
@@ -469,7 +469,7 @@ func sellStock(c *gin.Context) {
 	}
 
 	// Logging user command
-	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TNum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
+	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(sellCmdLog)
 
 	y := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
@@ -700,18 +700,55 @@ func cancelSetSell(c *gin.Context) {
 }
 
 func dumplog(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
-
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
+	type dumplogParams struct {
+		Filename string `json:"filename"`
+		Id       string `json:"id"`
 	}
+	var dumpLog dumplogParams
+	var log_entry logEntry
+
+	// Calling BindJSON to bind the recieved JSON
+	if err := c.BindJSON(&dumpLog); err != nil {
+		return
+	}
+
+	// Get logs from DB
+	var logs []bson.D
+	if dumpLog.Id == "" {
+		logs = readMany("logs", bson.D{})
+	} else {
+		logs = readMany("logs", bson.D{{"username", dumpLog.Id}})
+	}
+
+	// send logs[] as xml/json response
+	for _, log := range logs {
+		// fmt.Println(log)
+		parsedXML, err := xml.Marshal(log)
+		if err != nil {
+			fmt.Println("ERRROOROORORORORORO")
+			fmt.Println(err)
+		}
+		// log_entries = append(log_entries, parsedXML...)
+		err = xml.Unmarshal(parsedXML, &log_entry)
+		fmt.Println(log_entry)
+
+		// err := xml.Unmarshal(log_entry, &log)
+		// if err != nil {
+		// 	fmt.Printf("error: %v", err)
+		// 	return
+		// }
+		// // c.BindXML(&log_entry)
+		// fmt.Println(log_entry)
+
+	}
+	// parsedXML, err := xml.Marshal(logs)
+	// if err != nil {
+	// 	fmt.Println("ERRROOROORORORORORO")
+	// 	fmt.Println(err)
+	// }
+	// fmt.Println(parsedXML)
+	// c.XML(http.StatusOK, log_entries)
+
 }
 
 func displaySummary(c *gin.Context) {

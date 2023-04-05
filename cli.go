@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -215,6 +216,23 @@ func executeCmd(cmd Cmd) {
 		panic(err)
 	}
 	defer res.Body.Close()
+
+	// Parse response body
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Response body: %s\n\n", resBody)
+
+	if cmd.Command == "DUMPLOG" {
+		logsToFile(resBody)
+	}
+
+	if cmd.Command == "DISPLAY_SUMMARY" {
+		displaySummary(resBody)
+	}
+
 	// fmt.Printf("Req: %s %s\n", req.Host, req.URL.Path)
 
 	// fmt.Printf("Got response code: %d\n", res.StatusCode)
@@ -224,4 +242,38 @@ func executeCmd(cmd Cmd) {
 	// 	panic(err)
 	// }
 	// fmt.Printf("Response body: %s\n\n", resBody)
+}
+
+func logsToFile(resp []byte) {
+	// receiving in json, write in xml
+
+	// Write to file
+	// file, err := os.Create(filename)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	return
+	// }
+
+	// defer file.Close()
+
+	// _, err = file.WriteString("<?xml version='1.0'?>\n<log>\n")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	return
+	// }
+
+	// // write logs from db
+	// for _, log := range logs {
+	// 	fmt.Println(log)
+	// }
+
+	// _, err = file.WriteString("</log>")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	return
+	// }
+}
+
+func displaySummary(resp []byte) {
+	// print to stdout
 }

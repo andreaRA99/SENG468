@@ -71,10 +71,3 @@ func logEvent(logEntry logEntry) {
 	transaction_counter += 1
 	// return logEntry
 }
-
-// func main() {
-// 	// uc := userCommand{Timestamp: time.Now(), Server: "own-server"}
-// 	// thing := reflect.TypeOf(uc)
-// 	// fmt.Println(reflect.TypeOf(thing))
-// 	log(userCommand{Timestamp: time.Now(), Server: "own-server"})
-// }
