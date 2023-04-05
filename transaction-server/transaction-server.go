@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
@@ -78,7 +77,7 @@ var buys = []order{}
 var sells = []order{}
 
 var logfile = []string{} //WILL BE MOVED TO DB
-var transaction_counter = 1
+var transaction_counter int = 1
 var orders_counter = 1
 
 func connectDb(databaseUri string) (*mongo.Client, error) {
@@ -226,7 +225,7 @@ func addBalance(c *gin.Context) {
 	}
 
 	// Logging user command
-	addCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newBalDif.ID, Funds: newBalDif.Amount}
+	addCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "ADD", Username: newBalDif.ID, Funds: newBalDif.Amount}
 	logEvent(addCmdLog)
 
 	// CREATING ACCOUNT IT DOES NOT EXIST
@@ -245,7 +244,7 @@ func addBalance(c *gin.Context) {
 	}
 
 	// Logging account changes
-	addDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "add", Username: newBalDif.ID, Funds: newBalDif.Amount}
+	addDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Action: "add", Username: newBalDif.ID, Funds: newBalDif.Amount}
 	logEvent(addDBLog)
 }
 
@@ -268,7 +267,7 @@ func fetchQuote(id string, stock string) quote {
 	quotes = append(quotes, newQuote)
 
 	// Logging quote server hit
-	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Price: newQuote.Price, Stock: stock, Username: id, QSTime: tmstmp, Cryptokey: newQuote.CKey}
+	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Price: newQuote.Price, StockSymbol: stock, Username: id, QuoteServerTime: tmstmp, Cryptokey: newQuote.CKey}
 	logEvent(QSHitLog)
 
 	return newQuote
@@ -281,7 +280,7 @@ func Quote(c *gin.Context) {
 	stock := c.Param("stock")
 
 	// Logging user command
-	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: id, Stock: stock}
+	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "QUOTE", Username: id, StockSymbol: stock}
 	logEvent(quoteCmdLog)
 
 	theQuote := fetchQuote(id, stock)
@@ -354,7 +353,7 @@ func buyStock(c *gin.Context) {
 	}
 
 	// Logging user command
-	buyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
+	buyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "BUY", Username: newOrder.ID, StockSymbol: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(buyCmdLog)
 
 	// CHECK IF USER HAS ENOUGH BALANCE
@@ -421,7 +420,7 @@ func commitBuy(c *gin.Context) {
 		if o.ID == commitOrder.ID {
 			// would prefer logging outside loop but need order amount value
 			// Logging user command
-			commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: commitOrder.ID, Funds: o.Amount}
+			commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_BUY", Username: commitOrder.ID, Funds: o.Amount}
 			logEvent(commitBuyCmdLog)
 
 			// change user balance
@@ -436,7 +435,7 @@ func commitBuy(c *gin.Context) {
 			}
 
 			// Logging account changes
-			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "remove", Username: commitOrder.ID, Funds: o.Amount}
+			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Action: "remove", Username: commitOrder.ID, Funds: o.Amount}
 			logEvent(commitBuyDBLog)
 
 			//remover order from orders
@@ -471,7 +470,7 @@ func sellStock(c *gin.Context) {
 	}
 
 	// Logging user command
-	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: newOrder.ID, Stock: newOrder.Stock, Funds: newOrder.Amount}
+	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "SELL", Username: newOrder.ID, StockSymbol: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(sellCmdLog)
 
 	y := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
@@ -557,7 +556,7 @@ func commitSell(c *gin.Context) {
 		if o.ID == commitOrder.ID {
 			// would prefer logging outside loop but need order amount value
 			// Logging user command
-			commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Command: c.Param("cmd"), Username: commitOrder.ID, Funds: commitOrder.Amount}
+			commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_SELL", Username: commitOrder.ID, Funds: commitOrder.Amount}
 			logEvent(commitSellCmdLog)
 
 			// change user balance
@@ -572,7 +571,7 @@ func commitSell(c *gin.Context) {
 			}
 
 			// Logging account changes
-			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Action: "add", Username: commitOrder.ID, Funds: commitOrder.Amount}
+			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Action: "add", Username: commitOrder.ID, Funds: commitOrder.Amount}
 			logEvent(commitBuyDBLog)
 
 			//remover order from orders
@@ -707,7 +706,7 @@ func dumplog(c *gin.Context) {
 		Id       string `json:"id"`
 	}
 	var dumpLog dumplogParams
-	var log_entry logEntry
+	// var log_entry logEntry
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&dumpLog); err != nil {
@@ -724,16 +723,17 @@ func dumplog(c *gin.Context) {
 	}
 	logs = mongo_read_logs(logsd)
 	// send logs[] as xml/json response
+	// fmt.Println("Entering dumplog func loop")
 	for _, log := range logs {
-		// fmt.Println(log)
-		parsedXML, err := xml.Marshal(log)
-		if err != nil {
-			fmt.Println("ERRROOROORORORORORO")
-			fmt.Println(err)
-		}
-		// log_entries = append(log_entries, parsedXML...)
-		err = xml.Unmarshal(parsedXML, &log_entry)
-		fmt.Println(log_entry)
+		fmt.Println(log)
+		// parsedXML, err := xml.Marshal(log)
+		// if err != nil {
+		// 	fmt.Println("ERRROOROORORORORORO")
+		// 	fmt.Println(err)
+		// }
+		// // log_entries = append(log_entries, parsedXML...)
+		// err = xml.Unmarshal(parsedXML, &log_entry)
+		// fmt.Println(log_entry)
 
 		// err := xml.Unmarshal(log_entry, &log)
 		// if err != nil {
@@ -744,6 +744,7 @@ func dumplog(c *gin.Context) {
 		// fmt.Println(log_entry)
 
 	}
+	// fmt.Println("Leaving dumplog func loop")
 	// parsedXML, err := xml.Marshal(logs)
 	// if err != nil {
 	// 	fmt.Println("ERRROOROORORORORORO")
