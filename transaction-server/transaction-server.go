@@ -713,13 +713,14 @@ func dumplog(c *gin.Context) {
 	}
 
 	// Get logs from DB
-	var logs []bson.D
+	var logsd []bson.D
+	var logs []logEntry
 	if dumpLog.Id == "" {
-		logs = readMany("logs", bson.D{})
+		logsd = readMany("logs", bson.D{})
 	} else {
-		logs = readMany("logs", bson.D{{"username", dumpLog.Id}})
+		logsd = readMany("logs", bson.D{{"username", dumpLog.Id}})
 	}
-
+	logs = mongo_read_logs(logsd)
 	// send logs[] as xml/json response
 	for _, log := range logs {
 		// fmt.Println(log)
