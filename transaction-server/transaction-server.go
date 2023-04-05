@@ -261,15 +261,14 @@ func fetchQuote(id string, stock string) quote {
 
 	// else:  HITTING QUOTE SERVER
 	// Currently: Read around type cache, do we want read through??
-	var tmstmp string
+	var tmstmp int
 	newQuote.Price, tmstmp, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id) //simulation of quote hit
 	newQuote.Stock = stock
 
 	quotes = append(quotes, newQuote)
 
 	// Logging quote server hit
-	qsTime, _ := strconv.Atoi(tmstmp)
-	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Price: newQuote.Price, Stock: stock, Username: id, QSTime: qsTime, Cryptokey: newQuote.CKey}
+	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", Tnum: transaction_counter, Price: newQuote.Price, Stock: stock, Username: id, QSTime: tmstmp, Cryptokey: newQuote.CKey}
 	logEvent(QSHitLog)
 
 	return newQuote
@@ -291,11 +290,11 @@ func Quote(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, theQuote)
 }
 
-func mockQuoteServerHit(sym string, username string) (float64, string, string) {
-	return rand.Float64() * 300, " thisisatimestamp ", " thisISaCRYPTOkey "
+func mockQuoteServerHit(sym string, username string) (float64, int, string) {
+	return rand.Float64() * 300, int(time.Now().Unix()), " thisISaCRYPTOkey "
 }
 
-func getQuoteTEMP(sym string, username string) (float64, string, string) {
+func getQuoteTEMP(sym string, username string) (float64, int, string) {
 	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
 	//make connection to server
 	strEcho := sym + " " + username + "\n"
@@ -335,7 +334,10 @@ func getQuoteTEMP(sym string, username string) (float64, string, string) {
 	if err != nil {
 		panic(err)
 	}
-	timestamp := reply[3] // WHY TIME STAMP?? QUOTESERVER RETURNS QUOTE USER ID AND CK
+	timestamp, err := strconv.Atoi(reply[3])
+	if err != nil {
+		log.Fatal(err)
+	}
 	cryptKey := reply[4]
 
 	conn.Close()
