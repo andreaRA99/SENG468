@@ -9,12 +9,29 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/urfave/cli"
 )
+
+type logEntry struct {
+	LogType         string  `xml:"logType"`
+	Timestamp       int64   `xml:"timestamp"`
+	Server          string  `xml:"server"`
+	TransactionNum  int     `xml:"transactionNum"`
+	Command         string  `xml:"command"`
+	Username        string  `xml:"username"`
+	StockSymbol     string  `xml:"stockSymbol"`
+	Filename        string  `xml:"filename"`
+	Funds           float64 `xml:"funds"`
+	Price           float64 `xml:"price"`
+	QuoteServerTime int     `xml:"quoteServerTime"`
+	Cryptokey       string  `xml:"cryptokey"`
+	Action          string  `xml:"action"`
+	ErrorMessage    string  `xml:"errorMessage"`
+	DebugMessage    string  `xml:"debugMessage"`
+}
 
 // Cmd struct is a representation of an isolated command executed by a user
 type Cmd struct {
@@ -224,73 +241,135 @@ func executeCmd(cmd Cmd) {
 		panic(err)
 	}
 
-	fmt.Printf("Response body: %s\n\n", resBody)
+	// map each to logEntry struct
+	var resStr []logEntry
+	json.Unmarshal(resBody, &resStr)
 
 	if cmd.Command == "DUMPLOG" {
-		logsToFile(resBody)
+		logsToFile(resStr)
 	}
 
 	if cmd.Command == "DISPLAY_SUMMARY" {
 		displaySummary(resBody)
 	}
-
-	// fmt.Printf("Req: %s %s\n", req.Host, req.URL.Path)
-
-	// fmt.Printf("Got response code: %d\n", res.StatusCode)
-
-	// resBody, err := ioutil.ReadAll(res.Body)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Printf("Response body: %s\n\n", resBody)
 }
 
-func logsToFile(resp []byte) {
+func logsToFile(resp []logEntry) {
 	// receiving in json, write in xml
-
-	// split into separate entries
-	pattern := `{_id ObjectID("[0-9]+")}`
-	re := regexp.MustCompile(pattern)
-
-	// Use the regexp to split slice
-	output := [][]byte{}
-	for _, s := range re.Split(string(resp), -1) {
-		output = append(output, []byte(s))
-	}
-
-	//
-
-	//map each to logEntry struct
-
-	// write in xml format
-	// file, _ := xml.MarshalIndent(entry, "", " ")
-	// _ = ioutil.WriteFile("log.xml", file, 0644)
+	// fmt.Println(resp[len(resp)-1].Filename)
+	filename := resp[len(resp)-1].Filename
 
 	// Write to file
-	// file, err := os.Create(filename)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	return
-	// }
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 
-	// defer file.Close()
+	defer file.Close()
 
-	// _, err = file.WriteString("<?xml version='1.0'?>\n<log>\n")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	return
-	// }
+	_, err = file.WriteString("<?xml version='1.0'?>\n<log>\n")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 
-	// // write logs from db
-	// for _, log := range logs {
-	// 	fmt.Println(log)
-	// }
+	// write logs from db
+	for _, log_entry := range resp {
+		// fmt.Println(log_entry)
+		_, err = file.WriteString("\t<" + log_entry.LogType + ">\n")
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		switch log_entry.LogType {
+		case "userCommand", "systemEvent":
+			_, err = file.WriteString(
+				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
+					"\t\t<server>" + log_entry.Server + "</server>\n" +
+					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
+					"\t\t<command>" + log_entry.Command + "</command>\n" +
+					"\t\t<username>" + log_entry.Username + "</username>\n" +
+					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
+					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
+					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n")
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
 
-	// _, err = file.WriteString("</log>")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	return
-	// }
+		case "quoteServer":
+			_, err = file.WriteString(
+				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
+					"\t\t<server>" + log_entry.Server + "</server>\n" +
+					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
+					"\t\t<price>" + fmt.Sprintf("%f", log_entry.Price) + "</price>\n" +
+					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
+					"\t\t<username>" + log_entry.Username + "</username>\n" +
+					"\t\t<quoteServerTime>" + fmt.Sprintf("%d", log_entry.QuoteServerTime) + "</quoteServerTime>\n" +
+					"\t\t<crytokey>" + log_entry.Cryptokey + "</cryptokey>\n")
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+		case "accountTransaction":
+			_, err = file.WriteString(
+				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
+					"\t\t<server>" + log_entry.Server + "</server>\n" +
+					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
+					"\t\t<action>" + log_entry.Action + "</action>\n" +
+					"\t\t<username>" + log_entry.Username + "</username>\n" +
+					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n")
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+		case "errorEvent":
+			_, err = file.WriteString(
+				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
+					"\t\t<server>" + log_entry.Server + "</server>\n" +
+					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
+					"\t\t<command>" + log_entry.Command + "</command>\n" +
+					"\t\t<username>" + log_entry.Username + "</username>\n" +
+					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
+					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
+					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n" +
+					"\t\t<errorMessage>" + log_entry.ErrorMessage + "</errorMessage>\n")
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+		case "debugEvent":
+			_, err = file.WriteString(
+				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
+					"\t\t<server>" + log_entry.Server + "</server>\n" +
+					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
+					"\t\t<command>" + log_entry.Command + "</command>\n" +
+					"\t\t<username>" + log_entry.Username + "</username>\n" +
+					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
+					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
+					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n" +
+					"\t\t<debugEvent>" + log_entry.ErrorMessage + "</debugEvent>\n")
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+		}
+		_, err = file.WriteString("\t</" + log_entry.LogType + ">\n")
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	}
+
+	_, err = file.WriteString("</log>")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 }
 
 func displaySummary(resp []byte) {
