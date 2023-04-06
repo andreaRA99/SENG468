@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -246,6 +247,24 @@ func executeCmd(cmd Cmd) {
 
 func logsToFile(resp []byte) {
 	// receiving in json, write in xml
+
+	// split into separate entries
+	pattern := `{_id ObjectID("[0-9]+")}`
+	re := regexp.MustCompile(pattern)
+
+	// Use the regexp to split slice
+	output := [][]byte{}
+	for _, s := range re.Split(string(resp), -1) {
+		output = append(output, []byte(s))
+	}
+
+	//
+
+	//map each to logEntry struct
+
+	// write in xml format
+	// file, _ := xml.MarshalIndent(entry, "", " ")
+	// _ = ioutil.WriteFile("log.xml", file, 0644)
 
 	// Write to file
 	// file, err := os.Create(filename)
