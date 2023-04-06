@@ -54,13 +54,13 @@ func mongo_read_logs(v []bson.D) []logEntry {
 				{
 					e.Timestamp = d
 				}
-			case int:
+			case int32:
 				{
 					if tempk == "TransactionNum" {
-						e.TransactionNum = d
+						e.TransactionNum = int(d)
 					}
 					if tempk == "QuoteServerTime" {
-						e.QuoteServerTime = d
+						e.QuoteServerTime = int(d)
 					}
 				}
 			case float64:

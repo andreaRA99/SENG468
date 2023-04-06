@@ -706,12 +706,15 @@ func dumplog(c *gin.Context) {
 		Id       string `json:"id"`
 	}
 	var dumpLog dumplogParams
-	// var log_entry logEntry
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&dumpLog); err != nil {
 		return
 	}
+
+	// Logging dumplog command
+	dumplogCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "DUMPLOG", Username: dumpLog.Id, Filename: dumpLog.Filename}
+	logEvent(dumplogCmdLog)
 
 	// Get logs from DB
 	var logsd []bson.D
@@ -722,37 +725,9 @@ func dumplog(c *gin.Context) {
 		logsd = readMany("logs", bson.D{{"username", dumpLog.Id}})
 	}
 	logs = mongo_read_logs(logsd)
-	// send logs[] as xml/json response
-	// fmt.Println("Entering dumplog func loop")
-	for _, log := range logs {
-		fmt.Println(log)
-		// parsedXML, err := xml.Marshal(log)
-		// if err != nil {
-		// 	fmt.Println("ERRROOROORORORORORO")
-		// 	fmt.Println(err)
-		// }
-		// // log_entries = append(log_entries, parsedXML...)
-		// err = xml.Unmarshal(parsedXML, &log_entry)
-		// fmt.Println(log_entry)
 
-		// err := xml.Unmarshal(log_entry, &log)
-		// if err != nil {
-		// 	fmt.Printf("error: %v", err)
-		// 	return
-		// }
-		// // c.BindXML(&log_entry)
-		// fmt.Println(log_entry)
-
-	}
-	// fmt.Println("Leaving dumplog func loop")
-	// parsedXML, err := xml.Marshal(logs)
-	// if err != nil {
-	// 	fmt.Println("ERRROOROORORORORORO")
-	// 	fmt.Println(err)
-	// }
-	// fmt.Println(parsedXML)
-	// c.XML(http.StatusOK, log_entries)
-
+	// Send logs as JSON response
+	c.IndentedJSON(http.StatusOK, logs)
 }
 
 func displaySummary(c *gin.Context) {
