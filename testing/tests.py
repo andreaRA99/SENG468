@@ -79,7 +79,7 @@ except Exception:
 print("7. Commit buy:    ", end="")
 try:
    r = '{"ID": "test_user", "Stock":"ccc"}'
-   n = requests.post("http://host.docker.internal:8080/users/test_user/buy/commit", data=r).content.decode()
+   n = requests.post("http://host.docker.internal:8080/users/buy/commit", data=r).content.decode()
    if "Bad request" in n or "404 page not found" in n:
       raise Exception
    tests_passed = tests_passed + 1
@@ -106,7 +106,7 @@ except Exception:
 print("9. Sell stock:    ", end="")
 try:
    r = '{"ID": "test_user", "Stock":"ccc"}'
-   n = requests.post("http://host.docker.internal:8080/users/test_user/sell/ccc/amount/9", data=r).content.decode()
+   n = requests.post("http://host.docker.internal:8080/users/sell", data=r).content.decode()
    if "Bad request" in n or "404 page not found" in n:
       raise Exception
    tests_passed = tests_passed + 1
