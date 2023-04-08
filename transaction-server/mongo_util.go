@@ -5,10 +5,8 @@ import (
 )
 
 func mongo_read_logs(v []bson.D) []logEntry {
-	// fmt.Println("Entering mongo util")
 	var temp []logEntry
 	for _, s := range v {
-		// fmt.Println(s)
 		var e logEntry
 		for _, kv_pair := range s {
 			tempk := kv_pair.Key
@@ -72,7 +70,6 @@ func mongo_read_logs(v []bson.D) []logEntry {
 				}
 			}
 		}
-		// fmt.Println(e)
 		temp = append(temp, e)
 	}
 	// fmt.Println("Leaving mongo utils")
@@ -92,7 +89,6 @@ func mongo_read_bsonA(v bson.A) []holding {
 	var e []holding
 
 	for _, s := range v {
-		// fmt.Println(s)
 		var temp holding
 
 		switch c := s.(type) {
@@ -105,12 +101,7 @@ func mongo_read_bsonA(v bson.A) []holding {
 						{
 							temp.symbol = d
 						}
-					case int32:
-						{
-							// fmt.Printf("Should never be this\n\n", d)
-							// fmt.Printf("%d\n\n", d)
 
-						}
 					case float64:
 						{
 							if kv_pair.Key == "quantity" {

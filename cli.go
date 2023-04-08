@@ -200,7 +200,7 @@ func executeCmd(cmd Cmd) {
 	case "COMMIT_BUY":
 		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy/commit", bytes.NewBuffer(parsedJson))
 	case "CANCEL_BUY":
-		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"buy/cancel", nil)
+		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/buy/cancel", nil)
 	case "SELL":
 		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell", bytes.NewBuffer(parsedJson))
 	case "COMMIT_SELL":
@@ -208,17 +208,17 @@ func executeCmd(cmd Cmd) {
 	case "CANCEL_SELL":
 		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/sell/cancel", nil)
 	case "SET_BUY_AMOUNT":
-		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/setbuy", bytes.NewBuffer(parsedJson))
+		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/set/buy", bytes.NewBuffer(parsedJson))
 	case "CANCEL_SET_BUY":
-		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/setbuy/"+cmd.Stock+"/cancel", nil)
+		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/set/buy/"+cmd.Stock+"/cancel", nil)
 	case "SET_BUY_TRIGGER":
-		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/setbuy/trigger", bytes.NewBuffer(parsedJson))
+		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/set/buy/trigger", bytes.NewBuffer(parsedJson))
 	case "SET_SELL_AMOUNT":
-		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/setsell", bytes.NewBuffer(parsedJson))
+		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/set/sell", bytes.NewBuffer(parsedJson))
 	case "SET_SELL_TRIGGER":
-		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/setsell/trigger", bytes.NewBuffer(parsedJson))
+		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/set/sell/trigger", bytes.NewBuffer(parsedJson))
 	case "CANCEL_SET_SELL":
-		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/setsell/"+cmd.Stock+"/cancel", nil)
+		req, err = http.NewRequest(http.MethodDelete, reqUrlPrefix+"/users/"+cmd.Id+"/set/sell/"+cmd.Stock+"/cancel", nil)
 	case "DUMPLOG":
 		req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/dumplog", bytes.NewBuffer(parsedJson))
 	case "DISPLAY_SUMMARY":
