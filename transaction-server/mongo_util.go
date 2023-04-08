@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -10,7 +8,7 @@ func mongo_read_logs(v []bson.D) []logEntry {
 	// fmt.Println("Entering mongo util")
 	var temp []logEntry
 	for _, s := range v {
-		fmt.Println(s)
+		// fmt.Println(s)
 		var e logEntry
 		for _, kv_pair := range s {
 			tempk := kv_pair.Key
@@ -74,7 +72,7 @@ func mongo_read_logs(v []bson.D) []logEntry {
 				}
 			}
 		}
-		fmt.Println(e)
+		// fmt.Println(e)
 		temp = append(temp, e)
 	}
 	// fmt.Println("Leaving mongo utils")
@@ -94,7 +92,7 @@ func mongo_read_bsonA(v bson.A) []holding {
 	var e []holding
 
 	for _, s := range v {
-		fmt.Println(s)
+		// fmt.Println(s)
 		var temp holding
 
 		switch c := s.(type) {
@@ -109,8 +107,8 @@ func mongo_read_bsonA(v bson.A) []holding {
 						}
 					case int32:
 						{
-							fmt.Printf("Should never be this\n\n", d)
-							fmt.Printf("%d\n\n", d)
+							// fmt.Printf("Should never be this\n\n", d)
+							// fmt.Printf("%d\n\n", d)
 
 						}
 					case float64:

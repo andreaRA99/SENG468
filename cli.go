@@ -173,7 +173,7 @@ func parseLine(line string) Cmd {
 			return Cmd{Command: command, Id: cmd_arr[1], Filename: cmd_arr[2]}
 		}
 	}
-	fmt.Printf("Command received: %s, line: %s\n", command, line)
+	// fmt.Printf("Command received: %s, line: %s\n", command, line)
 	panic("Unknown command received")
 }
 

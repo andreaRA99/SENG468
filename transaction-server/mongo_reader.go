@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -82,7 +81,7 @@ func readField(collection_ string, filter bson.D, fields bson.D) []bson.D {
 	if err = cursor.All(context.TODO(), &results); err != nil {
 		panic(err)
 	}
-	fmt.Println(results)
+	// fmt.Println(results)
 	return results
 }
 
