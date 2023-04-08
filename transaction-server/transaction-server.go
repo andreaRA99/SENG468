@@ -426,7 +426,7 @@ func commitBuy(c *gin.Context) {
 			// change user balance
 			r := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"cash_balance", -o.Amount}}, "$inc")
 			// add stock to user data
-			i := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", o.Stock}, {"quantity", o.Qty}}}}, "$inc")
+			i := updateOne("users", bson.D{{"user_id", o.ID}}, bson.D{{"account_holdings", bson.D{{"symbol", o.Stock}, {"quantity", o.Qty}}}}, "$set")
 			if i != "ok" {
 				panic("PUSH ERROR")
 			}
@@ -473,9 +473,7 @@ func sellStock(c *gin.Context) {
 	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "SELL", Username: newOrder.ID, StockSymbol: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(sellCmdLog)
 
-	y := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
-
-	fmt.Println(y)
+	_ = rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
 
 	r := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"account_holdings", 1}})
 	n := bson.D{{"none", "none"}}
