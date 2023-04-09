@@ -40,7 +40,7 @@ type Cmd struct {
 	Stock    string  `json:"stock"`
 	Amount   float64 `json:"amount"`
 	Filename string  `json:"filename"`
-	Price 	float64 `json:"Price"`
+	Price    float64 `json:"Price"`
 }
 
 func main() {
@@ -157,7 +157,7 @@ func parseLine(line string) Cmd {
 			panic(err)
 		}
 		return Cmd{Command: command, Id: cmd_arr[1], Amount: amount}
-	case "BUY", "SELL", "SET_BUY_AMOUNT",  "SET_SELL_AMOUNT":
+	case "BUY", "SELL", "SET_BUY_AMOUNT", "SET_BUY_TRIGGER", "SET_SELL_AMOUNT", "SET_SELL_TRIGGER":
 		amount, err := strconv.ParseFloat(cmd_arr[3], 64)
 		if err != nil {
 			panic(err)
