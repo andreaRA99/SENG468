@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"encoding/json"
-	"bytes"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -67,11 +67,10 @@ type quote struct {
 type LimitOrder struct {
 	Stock  string
 	Price  float64
-	Type 	 string 
+	Type   string
 	Amount float64
 	User   string `json:"ID"`
-	Qty 	 float64
-
+	Qty    float64
 }
 
 type order struct {
@@ -138,6 +137,9 @@ func main() {
 	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
 	router.GET("/quotes", getQuotes)
+
+	// // For testing
+	// router.GET("/buys", getBuys)
 
 	bind := flag.String("bind", "localhost:8080", "host:port to listen on")
 	flag.Parse()
@@ -374,7 +376,7 @@ func buyStock(c *gin.Context) {
 	// Fetching most current price for that stock
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 
-	newOrder.Qty = int(math.Floor(newOrder.Amount))
+	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
 	if newOrder.Amount == 0 {
@@ -504,13 +506,13 @@ func sellStock(c *gin.Context) {
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
-	
+
 	fmt.Println(r)
 	if (len(r)) < 1 {
 		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
 		return
 	}
-	if len(r[0]) < 1{
+	if len(r[0]) < 1 {
 		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
 		return
 
@@ -634,74 +636,72 @@ func healthcheck(c *gin.Context) {
 // set buy amount -> (cancel) -> set buy price
 
 func setAmount(c *gin.Context) {
-	// [68] SET_SELL_AMOUNT,oY01WVirLr,S,216.83 
+	// [68] SET_SELL_AMOUNT,oY01WVirLr,S,216.83
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
-	// Calling BindJSON to bind the recieved JSON 
+	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		return
 	}
 
-
 	for _, o := range uncommited_limit_orders {
-		if o.User == limitorder.User{
-			if o.Type == limitorder.Type{
+		if o.User == limitorder.User {
+			if o.Type == limitorder.Type {
 				o.Amount = limitorder.Amount
-			} 
+			}
 		}
 	}
-	
+
 	uncommited_limit_orders = append(uncommited_limit_orders, limitorder)
-	
+
 }
 
 func cancelSet(c *gin.Context) {
 	// health check code
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
-	// Calling BindJSON to bind the recieved JSON 
+	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		return
 	}
 
 	j := 0
 	for _, o := range uncommited_limit_orders {
-		if o.User == limitorder.User{
-			if o.Type == limitorder.Type{
+		if o.User == limitorder.User {
+			if o.Type == limitorder.Type {
 				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
-			} 
+			}
 		}
-		j ++
+		j++
 	}
-	
-	
+
 }
 
 func setTrigger(c *gin.Context) {
 	// Unresolved:
-	//(a) a reserve account is created for the BUY transaction to hold the specified amount in reserve for when the transaction is triggered  
-	// (b)the user's cash account is decremented by the specified amount 
+	//(a) a reserve account is created for the BUY transaction to hold the specified amount in reserve for when the transaction is triggered
+	// (b)the user's cash account is decremented by the specified amount
 	// Resolved:   (c) when the trigger point is reached the user's stock account is updated to reflect the BUY transaction.
 
-	// [73] SET_SELL_TRIGGER,oY01WVirLr,S,30.04 
+	// [73] SET_SELL_TRIGGER,oY01WVirLr,S,30.04
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
 
-	// Calling BindJSON to bind the recieved JSON 
+	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		return
 	}
 
 	j := 0
 	for _, o := range uncommited_limit_orders {
-		if o.User == limitorder.User{
-			if o.Type == limitorder.Type{
+		if o.User == limitorder.User {
+			if o.Type == limitorder.Type {
 				o.Price = limitorder.Price
 				parsedJson, err := json.Marshal(o)
 				if err != nil {
 					panic(err)
 				}
-			
+
 				req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/new_limit", bytes.NewBuffer(parsedJson))
 				if err != nil {
 					panic(err)
@@ -713,16 +713,14 @@ func setTrigger(c *gin.Context) {
 
 				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
 				return
-			} 
-			
+			}
+
 		}
-		j ++
+		j++
 	}
 	fmt.Println("Did not find a limit order")
 
 }
-
-
 
 func dumplog(c *gin.Context) {
 	type dumplogParams struct {
