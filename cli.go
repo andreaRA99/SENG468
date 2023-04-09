@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"encoding/xml"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,21 +16,22 @@ import (
 )
 
 type logEntry struct {
-	LogType         string  `xml:"logType"`
-	Timestamp       int64   `xml:"timestamp"`
-	Server          string  `xml:"server"`
-	TransactionNum  int     `xml:"transactionNum"`
-	Command         string  `xml:"command"`
-	Username        string  `xml:"username"`
-	StockSymbol     string  `xml:"stockSymbol"`
-	Filename        string  `xml:"filename"`
-	Funds           float64 `xml:"funds"`
-	Price           float64 `xml:"price"`
-	QuoteServerTime int     `xml:"quoteServerTime"`
-	Cryptokey       string  `xml:"cryptokey"`
-	Action          string  `xml:"action"`
-	ErrorMessage    string  `xml:"errorMessage"`
-	DebugMessage    string  `xml:"debugMessage"`
+	XMLName         xml.Name
+	LogType         string  `xml:"-" json:"logType"`
+	Timestamp       int64   `xml:"timestamp,omitempty" json:"timestamp,omitempty"`
+	Server          string  `xml:"server,omitempty" json:"server,omitempty"`
+	TransactionNum  int     `xml:"transactionNum,omitempty" json:"transactionNum,omitempty"`
+	Command         string  `xml:"command,omitempty" json:"command,omitempty"`
+	Action          string  `xml:"action,omitempty" json:"action,omitempty"`
+	Username        string  `xml:"username,omitempty" json:"username,omitempty"`
+	StockSymbol     string  `xml:"stockSymbol,omitempty" json:"stockSymbol,omitempty"`
+	Price           float64 `xml:"price,omitempty" json:"price,omitempty"`
+	Filename        string  `xml:"filename,omitempty" json:"filename,omitempty"`
+	Funds           float64 `xml:"funds,omitempty" json:"funds,omitempty"`
+	QuoteServerTime int     `xml:"quoteServerTime,omitempty" json:"quoteServerTime,omitempty"`
+	Cryptokey       string  `xml:"cryptokey,omitempty" json:"cryptokey,omitempty"`
+	ErrorMessage    string  `xml:"errorMessage,omitempty" json:"errorMessage,omitempty"`
+	DebugMessage    string  `xml:"debugMessage,omitempty" json:"debugMessage,omitempty"`
 }
 
 // Cmd struct is a representation of an isolated command executed by a user
@@ -40,7 +41,7 @@ type Cmd struct {
 	Stock    string  `json:"stock"`
 	Amount   float64 `json:"amount"`
 	Filename string  `json:"filename"`
-	Price 	float64 `json:"Price"`
+	Price    float64 `json:"Price"`
 }
 
 func main() {
@@ -157,7 +158,7 @@ func parseLine(line string) Cmd {
 			panic(err)
 		}
 		return Cmd{Command: command, Id: cmd_arr[1], Amount: amount}
-	case "BUY", "SELL", "SET_BUY_AMOUNT",  "SET_SELL_AMOUNT":
+	case "BUY", "SELL", "SET_BUY_AMOUNT", "SET_SELL_AMOUNT":
 		amount, err := strconv.ParseFloat(cmd_arr[3], 64)
 		if err != nil {
 			panic(err)
@@ -180,13 +181,11 @@ func parseLine(line string) Cmd {
 			return Cmd{Command: command, Id: cmd_arr[1], Filename: cmd_arr[2]}
 		}
 	}
-	// fmt.Printf("Command received: %s, line: %s\n", command, line)
 	panic("Unknown command received")
 }
 
 // Function sends request to server to execute command given
 func executeCmd(cmd Cmd) {
-	// fmt.Println(cmd)
 	var req *http.Request
 	var err error
 
@@ -248,12 +247,8 @@ func executeCmd(cmd Cmd) {
 		panic(err)
 	}
 
-	// map each to logEntry struct
-	var resStr []logEntry
-	json.Unmarshal(resBody, &resStr)
-
 	if cmd.Command == "DUMPLOG" {
-		logsToFile(resStr)
+		logsToFile(resBody)
 	}
 
 	if cmd.Command == "DISPLAY_SUMMARY" {
@@ -261,122 +256,19 @@ func executeCmd(cmd Cmd) {
 	}
 }
 
-func logsToFile(resp []logEntry) {
-	// receiving in json, write in xml
-	// fmt.Println(resp[len(resp)-1].Filename)
+func logsToFile(resBody []byte) {
+	var resp []logEntry
+	json.Unmarshal(resBody, &resp)
+
 	filename := resp[len(resp)-1].Filename
-
-	// Write to file
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-		return
+	for idx := range resp {
+		resp[idx].XMLName.Local = resp[idx].LogType
 	}
 
-	defer file.Close()
+	file, _ := xml.MarshalIndent(resp, "  ", "  ")
+	xmlWithHeader := "<?xml version='1.0'?>\n<log>\n" + string(file) + "\n</log>"
 
-	_, err = file.WriteString("<?xml version='1.0'?>\n<log>\n")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	// write logs from db
-	for _, log_entry := range resp {
-		// fmt.Println(log_entry)
-		_, err = file.WriteString("\t<" + log_entry.LogType + ">\n")
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-		switch log_entry.LogType {
-		case "userCommand", "systemEvent":
-			_, err = file.WriteString(
-				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
-					"\t\t<server>" + log_entry.Server + "</server>\n" +
-					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
-					"\t\t<command>" + log_entry.Command + "</command>\n" +
-					"\t\t<username>" + log_entry.Username + "</username>\n" +
-					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
-					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
-					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-		case "quoteServer":
-			_, err = file.WriteString(
-				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
-					"\t\t<server>" + log_entry.Server + "</server>\n" +
-					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
-					"\t\t<price>" + fmt.Sprintf("%f", log_entry.Price) + "</price>\n" +
-					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
-					"\t\t<username>" + log_entry.Username + "</username>\n" +
-					"\t\t<quoteServerTime>" + fmt.Sprintf("%d", log_entry.QuoteServerTime) + "</quoteServerTime>\n" +
-					"\t\t<crytokey>" + log_entry.Cryptokey + "</cryptokey>\n")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-		case "accountTransaction":
-			_, err = file.WriteString(
-				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
-					"\t\t<server>" + log_entry.Server + "</server>\n" +
-					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
-					"\t\t<action>" + log_entry.Action + "</action>\n" +
-					"\t\t<username>" + log_entry.Username + "</username>\n" +
-					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-		case "errorEvent":
-			_, err = file.WriteString(
-				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
-					"\t\t<server>" + log_entry.Server + "</server>\n" +
-					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
-					"\t\t<command>" + log_entry.Command + "</command>\n" +
-					"\t\t<username>" + log_entry.Username + "</username>\n" +
-					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
-					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
-					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n" +
-					"\t\t<errorMessage>" + log_entry.ErrorMessage + "</errorMessage>\n")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-		case "debugEvent":
-			_, err = file.WriteString(
-				"\t\t<timestamp>" + fmt.Sprintf("%d", log_entry.Timestamp) + "</timestamp>\n" +
-					"\t\t<server>" + log_entry.Server + "</server>\n" +
-					"\t\t<transactionNum>" + fmt.Sprintf("%d", log_entry.TransactionNum) + "</transactionNum>\n" +
-					"\t\t<command>" + log_entry.Command + "</command>\n" +
-					"\t\t<username>" + log_entry.Username + "</username>\n" +
-					"\t\t<stockSymbol>" + log_entry.StockSymbol + "</stockSymbol>\n" +
-					"\t\t<filename>" + log_entry.Filename + "</filename>\n" +
-					"\t\t<funds>" + fmt.Sprintf("%f", log_entry.Funds) + "</funds>\n" +
-					"\t\t<debugEvent>" + log_entry.ErrorMessage + "</debugEvent>\n")
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-
-		}
-		_, err = file.WriteString("\t</" + log_entry.LogType + ">\n")
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-	}
-
-	_, err = file.WriteString("</log>")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+	_ = ioutil.WriteFile(filename, []byte(xmlWithHeader), 0644)
 }
 
 func displaySummary(resp []byte) {

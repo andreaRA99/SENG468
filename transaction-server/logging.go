@@ -14,21 +14,21 @@ var ERR_EVENT = "errorEvent"
 var DEBUG_EVENT = "debugEvent"
 
 type logEntry struct {
-	LogType         string  `xml:"logType"`
-	Timestamp       int64   `xml:"timestamp"`
-	Server          string  `xml:"server"`
-	TransactionNum  int     `xml:"transactionNum"`
-	Command         string  `xml:"command"`
-	Username        string  `xml:"username"`
-	StockSymbol     string  `xml:"stockSymbol"`
-	Filename        string  `xml:"filename"`
-	Funds           float64 `xml:"funds"`
-	Price           float64 `xml:"price"`
-	QuoteServerTime int     `xml:"quoteServerTime"`
-	Cryptokey       string  `xml:"cryptokey"`
-	Action          string  `xml:"action"`
-	ErrorMessage    string  `xml:"errorMessage"`
-	DebugMessage    string  `xml:"debugMessage"`
+	LogType         string  `xml:"logType" json:"logType"`
+	Timestamp       int64   `xml:"timestamp json:"timestamp"`
+	Server          string  `xml:"server json:"server"`
+	TransactionNum  int     `xml:"transactionNum" json:"transactionNum"`
+	Command         string  `xml:"command" json:"command"`
+	Username        string  `xml:"username" json:"username"`
+	StockSymbol     string  `xml:"stockSymbol" json:"stockSymbol"`
+	Filename        string  `xml:"filename" json:"filename"`
+	Funds           float64 `xml:"funds" json:"funds"`
+	Price           float64 `xml:"price" json:"price"`
+	QuoteServerTime int     `xml:"quoteServerTime" json:"quoteServerTime"`
+	Cryptokey       string  `xml:"cryptokey" json:"cryptokey"`
+	Action          string  `xml:"action" json:"action"`
+	ErrorMessage    string  `xml:"errorMessage" json:"errorMessage"`
+	DebugMessage    string  `xml:"debugMessage" json:"debugMessage"`
 }
 
 func logEvent(logEntry logEntry) {
@@ -68,6 +68,4 @@ func logEvent(logEntry logEntry) {
 			log.Fatal("Write to DB error")
 		}
 	}
-	transaction_counter += 1
-	// return logEntry
 }
