@@ -389,7 +389,22 @@ func buyStock(c *gin.Context) {
 	case float64:
 		//{
 		if v > newOrder.Amount {
-			buys = append(buys, newOrder)
+			// User has previous order, replacing
+			index := -1
+			for i, o := range buys {
+				if o.ID == newOrder.ID {
+					index = i
+					buys[index].Stock = newOrder.Stock
+					buys[index].Amount = newOrder.Amount
+					buys[index].Price = newOrder.Price
+					buys[index].Qty = newOrder.Qty
+				}
+			}
+			// No previous pending buy by that user
+			if index == -1 {
+				buys = append(buys, newOrder)
+			}
+
 			c.IndentedJSON(http.StatusOK, newOrder)
 			return
 		} else {
