@@ -504,10 +504,6 @@ func sellStock(c *gin.Context) {
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
-<<<<<<< HEAD
-
-	if len(r[0]) < 1 {
-=======
 	
 	fmt.Println(r)
 	if (len(r)) < 1 {
@@ -515,7 +511,6 @@ func sellStock(c *gin.Context) {
 		return
 	}
 	if len(r[0]) < 1{
->>>>>>> 7a76773 (Added polling service)
 		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
 		return
 
