@@ -14,6 +14,16 @@ services:
     ports:
       - "6379:6379"
 
+  polling_microservice:
+    build: ./polling_service/
+    ports:
+      - target: 8081
+        published: 8081
+        protocol: tcp
+    command: --bind :8081
+    depends_on:
+      - redis      
+
   transaction-server:
     build: ./transaction-server/
     ports:
@@ -23,6 +33,7 @@ services:
     depends_on:
       - redis
       - db
+      - polling_microservice
     read_only: true
     init: true
     command: --bind :8080
@@ -30,7 +41,7 @@ services:
       DATABASE_URI: mongodb://db/?directConnection=true
       
 
-  build-test:
-    build: ./testing/
-    links: 
-      - transaction-server
+  #build-test:
+  #  build: ./testing/
+  #  links: 
+  #    - transaction-server

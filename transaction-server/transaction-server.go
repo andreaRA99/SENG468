@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/json"
+	"bytes"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -62,6 +64,16 @@ type quote struct {
 	// add timeout property
 }
 
+type LimitOrder struct {
+	Stock  string
+	Price  float64
+	Type 	 string 
+	Amount float64
+	User   string `json:"ID"`
+	Qty 	 float64
+
+}
+
 type order struct {
 	ID     string  `json:"id"`
 	Stock  string  `json: "stock"`
@@ -75,6 +87,8 @@ type order struct {
 var quotes = []quote{}
 var buys = []order{}
 var sells = []order{}
+
+var uncommited_limit_orders []LimitOrder
 
 var logfile = []string{} //WILL BE MOVED TO DB
 var transaction_counter int = 1
@@ -113,12 +127,9 @@ func main() {
 	router.DELETE("/users/:id/buy/cancel", cancelBuy)
 	router.POST("/users/sell/commit", commitSell)
 	router.DELETE("/users/:id/sell/cancel", cancelSell)
-	router.POST("/users/set/buy", setBuyAmount)
-	router.DELETE("/users/:id/set/buy/:stock/cancel", cancelSetBuy)
-	router.POST("/users/set/buy/trigger", setBuyTrigger)
-	router.POST("/users/set/sell", setSellAmount)
-	router.DELETE("/users/:id/set/sell/:stock/cancel", cancelSetSell)
-	router.POST("/users/set/sell/trigger", setSellTrigger)
+	router.POST("/users/set/:type", setAmount)
+	router.DELETE("/users/:id/set/:type/:stock/cancel", cancelSet)
+	router.POST("/users/set/:type/trigger", setTrigger)
 
 	router.POST("/dumplog", dumplog)
 	router.GET("/displaysummary/:id", displaySummary)
@@ -358,17 +369,13 @@ func buyStock(c *gin.Context) {
 
 	// CHECK IF USER HAS ENOUGH BALANCE
 	r := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
-	n := bson.D{{"none", "none"}}
-
-	if reflect.DeepEqual(r, n) {
-		panic("ERROR")
-	}
 
 	// This would ideally go after checking if account has enough balance
 	// Fetching most current price for that stock
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 
-	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
+	newOrder.Qty = int(math.Floor(newOrder.Amount))
+
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
 	if newOrder.Amount == 0 {
 		c.IndentedJSON(http.StatusForbidden, "Cannot afford stock with given amount")
@@ -497,8 +504,18 @@ func sellStock(c *gin.Context) {
 	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
+<<<<<<< HEAD
 
 	if len(r[0]) < 1 {
+=======
+	
+	fmt.Println(r)
+	if (len(r)) < 1 {
+		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
+		return
+	}
+	if len(r[0]) < 1{
+>>>>>>> 7a76773 (Added polling service)
 		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
 		return
 
@@ -541,7 +558,6 @@ func sellStock(c *gin.Context) {
 //c.IndentedJSON(http.StatusOK, newOrder)
 
 func commitSell(c *gin.Context) {
-	fmt.Println("COMMIT SELL")
 	var commitOrder order
 
 	// Calling BindJSON to bind the recieved JSON to new BalDif
@@ -620,95 +636,98 @@ func healthcheck(c *gin.Context) {
 	}
 }
 
-func setBuyAmount(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+// set buy amount -> (cancel) -> set buy price
 
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
+func setAmount(c *gin.Context) {
+	// [68] SET_SELL_AMOUNT,oY01WVirLr,S,216.83 
+	var limitorder LimitOrder
+	limitorder.Type = c.Param("type")
+	// Calling BindJSON to bind the recieved JSON 
+	if err := c.BindJSON(&limitorder); err != nil {
+		return
 	}
+
+
+	for _, o := range uncommited_limit_orders {
+		if o.User == limitorder.User{
+			if o.Type == limitorder.Type{
+				o.Amount = limitorder.Amount
+			} 
+		}
+	}
+	
+	uncommited_limit_orders = append(uncommited_limit_orders, limitorder)
+	
 }
 
-func cancelSetBuy(c *gin.Context) {
+func cancelSet(c *gin.Context) {
 	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
-
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
+	var limitorder LimitOrder
+	limitorder.Type = c.Param("type")
+	// Calling BindJSON to bind the recieved JSON 
+	if err := c.BindJSON(&limitorder); err != nil {
+		return
 	}
+
+	j := 0
+	for _, o := range uncommited_limit_orders {
+		if o.User == limitorder.User{
+			if o.Type == limitorder.Type{
+				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
+			} 
+		}
+		j ++
+	}
+	
+	
 }
 
-func setBuyTrigger(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+func setTrigger(c *gin.Context) {
+	// Unresolved:
+	//(a) a reserve account is created for the BUY transaction to hold the specified amount in reserve for when the transaction is triggered  
+	// (b)the user's cash account is decremented by the specified amount 
+	// Resolved:   (c) when the trigger point is reached the user's stock account is updated to reflect the BUY transaction.
 
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
+	// [73] SET_SELL_TRIGGER,oY01WVirLr,S,30.04 
+	var limitorder LimitOrder
+	limitorder.Type = c.Param("type")
+
+	// Calling BindJSON to bind the recieved JSON 
+	if err := c.BindJSON(&limitorder); err != nil {
+		return
 	}
+
+	j := 0
+	for _, o := range uncommited_limit_orders {
+		if o.User == limitorder.User{
+			if o.Type == limitorder.Type{
+				o.Price = limitorder.Price
+				parsedJson, err := json.Marshal(o)
+				if err != nil {
+					panic(err)
+				}
+			
+				req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/new_limit", bytes.NewBuffer(parsedJson))
+				if err != nil {
+					panic(err)
+				}
+				_, err = http.DefaultClient.Do(req)
+				if err != nil {
+					panic(err)
+				}
+
+				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
+				return
+			} 
+			
+		}
+		j ++
+	}
+	fmt.Println("Did not find a limit order")
+
 }
 
-func setSellAmount(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
 
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
-	}
-}
-
-func setSellTrigger(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
-
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
-	}
-}
-
-func cancelSetSell(c *gin.Context) {
-	// health check code
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
-
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		c.String(http.StatusInternalServerError, "mongo read unavailable")
-		log.Println(err)
-	}
-}
 
 func dumplog(c *gin.Context) {
 	type dumplogParams struct {
