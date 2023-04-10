@@ -4,6 +4,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+func mongo_read_cashbal(v []bson.D) []c_bal {
+	var temp []c_bal
+	for _, s := range v {
+		var e c_bal
+		for _, kv_pair := range s {
+			// tempk := kv_pair.Key
+			tempv := kv_pair.Value
+			switch d := tempv.(type) {
+			case float64:
+				e.Cash_balance = d
+			}
+		}
+		temp = append(temp, e)
+	}
+	return temp
+}
+
 func mongo_read_logs(v []bson.D) []logEntry {
 	var temp []logEntry
 	for _, s := range v {
