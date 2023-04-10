@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -34,6 +35,25 @@ type logEntry struct {
 	DebugMessage    string  `xml:"debugMessage,omitempty" json:"debugMessage,omitempty"`
 }
 
+type displayCmdData struct {
+	Transactions []logEntry   `json:"transactions"`
+	CashBalance  []c_bal      `json:"cashBalance"`
+	LimitOrders  []LimitOrder `json:"limitOrders"`
+}
+
+type c_bal struct {
+	Cash_balance float64 `json:"cash_balance"`
+}
+
+type LimitOrder struct {
+	Stock  string  `json:"stock" xml:"stock"`
+	Price  float64 `json:"price" xml:"price"`
+	Type   string  `json:"type" xml:"type"`
+	Amount float64 `json:"amount" xml:"amount"`
+	User   string  `json:"id" xml:"id"`
+	Qty    float64 `json:"qty" xml:"qty"`
+}
+
 // Cmd struct is a representation of an isolated command executed by a user
 type Cmd struct {
 	Command  string  `json:"cmd"`
@@ -41,7 +61,7 @@ type Cmd struct {
 	Stock    string  `json:"stock"`
 	Amount   float64 `json:"amount"`
 	Filename string  `json:"filename"`
-	Price    float64 `json:"Price"`
+	Price    float64 `json:"price"`
 }
 
 func main() {
@@ -271,6 +291,31 @@ func logsToFile(resBody []byte) {
 	_ = ioutil.WriteFile(filename, []byte(xmlWithHeader), 0644)
 }
 
-func displaySummary(resp []byte) {
-	// print to stdout
+func displaySummary(resBody []byte) {
+	var resp displayCmdData
+	json.Unmarshal(resBody, &resp)
+
+	for idx := range resp.Transactions {
+		resp.Transactions[idx].XMLName.Local = resp.Transactions[idx].LogType
+	}
+
+	fmt.Println("--------------------------------------------------------------------")
+	fmt.Println("DISPLAY_SUMMARY \tUser:", resp.Transactions[0].Username)
+	fmt.Println()
+	fmt.Println("Transaction History:")
+	fmt.Println()
+	for _, transaction := range resp.Transactions {
+		data, _ := xml.MarshalIndent(transaction, "\t", "  ")
+		fmt.Printf("%s\n\n", string(data))
+	}
+	fmt.Println("Status of Accounts:")
+	fmt.Println()
+	fmt.Println("\tBalance: ", resp.CashBalance[0].Cash_balance)
+	fmt.Println()
+	fmt.Println("Triggers:")
+	fmt.Println()
+	for _, order := range resp.LimitOrders {
+		lmo, _ := xml.MarshalIndent(order, "\t", "  ")
+		fmt.Printf("%s\n\n", string(lmo))
+	}
 }

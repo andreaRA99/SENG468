@@ -51,9 +51,8 @@ type users struct {
 	user_id string
 }
 
-// Not used.  There is supposed to be a way to read mongo db stuff directly into struct, but I coldnt get it to work.
 type c_bal struct {
-	cash_balance int32
+	Cash_balance float64 `json:"cash_balance"`
 }
 
 type quote struct {
@@ -65,12 +64,12 @@ type quote struct {
 }
 
 type LimitOrder struct {
-	Stock  string
-	Price  float64
-	Type   string
-	Amount float64
-	User   string `json:"ID"`
-	Qty    float64
+	Stock  string  `json:"stock"`
+	Price  float64 `json:"price"`
+	Type   string  `json:"type"`
+	Amount float64 `json:"amount"`
+	User   string  `json:"ID"`
+	Qty    float64 `json:"qty"`
 }
 
 type order struct {
@@ -81,6 +80,12 @@ type order struct {
 	Qty    int
 	//Buy_id string  `json:"buy_id"`
 	// figure out timeout feature
+}
+
+type displayCmdData struct {
+	Transactions []logEntry   `json:"transactions"`
+	CashBalance  []c_bal      `json:"cashBalance"`
+	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
 var quotes = []quote{}
@@ -111,29 +116,27 @@ func main() {
 		ctx.Next()
 	})
 
-	router.GET("/users", getAll) // Do we even need?? Not really
-	router.GET("/users/:id", getAccount)
+	// User Commands
 	router.PUT("/users/addBal", addBalance)
 	router.GET("/users/:id/quote/:stock", Quote)
 	router.POST("/users/buy", buyStock)
 	router.POST("/users/buy/commit", commitBuy)
-	router.POST("/users/sell", sellStock)
-
-	router.GET("/health", healthcheck)
-
-	// using temp functions and http method to test cli
-	// should be changed appropriately
 	router.DELETE("/users/:id/buy/cancel", cancelBuy)
+	router.POST("/users/sell", sellStock)
 	router.POST("/users/sell/commit", commitSell)
 	router.DELETE("/users/:id/sell/cancel", cancelSell)
 	router.POST("/users/set/:type", setAmount)
 	router.DELETE("/users/:id/set/:type/:stock/cancel", cancelSet)
 	router.POST("/users/set/:type/trigger", setTrigger)
-
 	router.POST("/dumplog", dumplog)
 	router.GET("/displaysummary/:id", displaySummary)
-	// GET RID OF LATER, FOR DEBUGGING PURPOSES
 
+	// Util routes
+	router.GET("/users/:id", getAccount)
+	router.GET("/health", healthcheck)
+
+	// GET RID OF LATER, FOR DEBUGGING PURPOSES
+	router.GET("/users", getAll) // Do we even need?? Not really
 	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
 	router.GET("/quotes", getQuotes)
@@ -260,6 +263,24 @@ func addBalance(c *gin.Context) {
 	transaction_counter += 1
 }
 
+func Quote(c *gin.Context) {
+	//var newQuote quote
+
+	id := c.Param("id")
+	stock := c.Param("stock")
+
+	// Logging user command
+	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "QUOTE", Username: id, StockSymbol: stock}
+	logEvent(quoteCmdLog)
+
+	theQuote := fetchQuote(id, stock)
+
+	// newQuote should be sent to cache
+	c.IndentedJSON(http.StatusOK, theQuote)
+
+	transaction_counter += 1
+}
+
 func fetchQuote(id string, stock string) quote {
 	var newQuote quote
 
@@ -283,24 +304,6 @@ func fetchQuote(id string, stock string) quote {
 	logEvent(QSHitLog)
 
 	return newQuote
-}
-
-func Quote(c *gin.Context) {
-	//var newQuote quote
-
-	id := c.Param("id")
-	stock := c.Param("stock")
-
-	// Logging user command
-	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "QUOTE", Username: id, StockSymbol: stock}
-	logEvent(quoteCmdLog)
-
-	theQuote := fetchQuote(id, stock)
-
-	// newQuote should be sent to cache
-	c.IndentedJSON(http.StatusOK, theQuote)
-
-	transaction_counter += 1
 }
 
 func mockQuoteServerHit(sym string, username string) (float64, int, string) {
@@ -369,6 +372,7 @@ func buyStock(c *gin.Context) {
 	// Logging user command
 	buyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "BUY", Username: newOrder.ID, StockSymbol: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(buyCmdLog)
+	transaction_counter += 1
 
 	// CHECK IF USER HAS ENOUGH BALANCE
 	r := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{"cash_balance", 1}})
@@ -415,8 +419,6 @@ func buyStock(c *gin.Context) {
 			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
 	}
-
-	transaction_counter += 1
 }
 
 func commitBuy(c *gin.Context) {
@@ -429,11 +431,13 @@ func commitBuy(c *gin.Context) {
 
 	// Getting most recent order that took place within last 60 secs
 	// Queue? Cache?
+	match := false
 	j := 0
 	for _, o := range buys {
 
 		if o.ID == commitOrder.ID {
-			// would prefer logging outside loop but need order amount value
+			match = true
+
 			// Logging user command
 			commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_BUY", Username: commitOrder.ID, Funds: o.Amount}
 			logEvent(commitBuyCmdLog)
@@ -462,17 +466,29 @@ func commitBuy(c *gin.Context) {
 		j++
 	}
 
+	// Command did not execute but must be logged
+	if !match {
+		// Logging user command
+		commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_BUY", Username: commitOrder.ID}
+		logEvent(commitBuyCmdLog)
+
+		// Logging command did not happen due to error
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_BUY", Username: commitOrder.ID}
+		logEvent(errorLog)
+	}
 	transaction_counter += 1
 }
 
 func cancelBuy(c *gin.Context) {
 	id := c.Param("id")
+	match := false
 	j := 0
 	for _, o := range buys {
 		if o.ID == id {
-			// would prefer logging outside loop but need order amount value
+			match = true
+
 			// Logging user command
-			cancelBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: c.Param("cmd"), Username: id}
+			cancelBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_BUY", Username: id}
 			logEvent(cancelBuyCmdLog)
 
 			//remover order from orders
@@ -485,6 +501,16 @@ func cancelBuy(c *gin.Context) {
 		j++
 	}
 
+	// Command did not execute but must be logged
+	if !match {
+		// Logging user command
+		cancelBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_BUY", Username: id}
+		logEvent(cancelBuyCmdLog)
+
+		// Logging command did not happen due to error
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_BUY", Username: id}
+		logEvent(errorLog)
+	}
 	transaction_counter += 1
 }
 
@@ -500,6 +526,7 @@ func sellStock(c *gin.Context) {
 	// Logging user command
 	sellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "SELL", Username: newOrder.ID, StockSymbol: newOrder.Stock, Funds: newOrder.Amount}
 	logEvent(sellCmdLog)
+	transaction_counter += 1
 
 	r := rawreadField("users", bson.D{{"user_id", newOrder.ID}}, bson.D{{newOrder.Stock, 1}})
 	n := bson.D{{"none", "none"}}
@@ -512,7 +539,6 @@ func sellStock(c *gin.Context) {
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
 
-	fmt.Println(r)
 	if (len(r)) < 1 {
 		c.IndentedJSON(http.StatusForbidden, "Stock Not Owned!")
 		return
@@ -547,11 +573,7 @@ func sellStock(c *gin.Context) {
 	c.IndentedJSON(http.StatusForbidden, "Finished")
 
 	// Check they have enough
-
-	transaction_counter += 1
-
 	return
-
 }
 
 // User has enough balance, proceed creating order
@@ -571,10 +593,12 @@ func commitSell(c *gin.Context) {
 
 	// Getting most recent order that took place within last 60 secs
 	// Queue? Cache?
+	match := false
 	j := 0
 	for _, o := range sells {
 		if o.ID == commitOrder.ID {
-			// would prefer logging outside loop but need order amount value
+			match = true
+
 			// Logging user command
 			commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_SELL", Username: commitOrder.ID, Funds: commitOrder.Amount}
 			logEvent(commitSellCmdLog)
@@ -589,8 +613,8 @@ func commitSell(c *gin.Context) {
 			}
 
 			// Logging account changes
-			commitBuyDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Action: "add", Username: commitOrder.ID, Funds: commitOrder.Amount}
-			logEvent(commitBuyDBLog)
+			commitSellDBLog := logEntry{LogType: ACC_TRANSACTION, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Action: "add", Username: commitOrder.ID, Funds: commitOrder.Amount}
+			logEvent(commitSellDBLog)
 
 			//remover order from orders
 
@@ -600,20 +624,33 @@ func commitSell(c *gin.Context) {
 		}
 		j++
 	}
-	c.IndentedJSON(http.StatusForbidden, "No previous sell order")
 
+	// Command did not execute but must be logged
+	if !match {
+		// Logging user command
+		commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_SELL", Username: commitOrder.ID}
+		logEvent(commitSellCmdLog)
+
+		// Logging command did not happen due to error
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_SELL", Username: commitOrder.ID}
+		logEvent(errorLog)
+	}
 	transaction_counter += 1
+
+	c.IndentedJSON(http.StatusForbidden, "No previous sell order")
 }
 
 func cancelSell(c *gin.Context) {
 	id := c.Param("id")
+	match := false
 	j := 0
 	for _, o := range sells {
 		if o.ID == id {
-			// would prefer logging outside loop but need order amount value
+			match = true
+
 			// Logging user command
-			commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: c.Param("cmd"), Username: id}
-			logEvent(commitSellCmdLog)
+			cancelSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_SELL", Username: id}
+			logEvent(cancelSellCmdLog)
 
 			c.IndentedJSON(http.StatusOK, "ok")
 			//remover order from orders
@@ -623,6 +660,17 @@ func cancelSell(c *gin.Context) {
 
 		}
 		j++
+	}
+
+	// Command did not execute but must be logged
+	if !match {
+		// Logging user command
+		cancelSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_SELL", Username: id}
+		logEvent(cancelSellCmdLog)
+
+		// Logging command did not happen due to error
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_SELL", Username: id}
+		logEvent(errorLog)
 	}
 	transaction_counter += 1
 
@@ -642,20 +690,31 @@ func healthcheck(c *gin.Context) {
 	}
 }
 
-// set buy amount -> (cancel) -> set buy price
-
 func setAmount(c *gin.Context) {
-	// [68] SET_SELL_AMOUNT,oY01WVirLr,S,216.83
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
+
+	var cmd string
+	if limitorder.Type == "buy" {
+		cmd = "SET_BUY_AMOUNT"
+	} else {
+		cmd = "SET_SELL_AMOUNT"
+	}
+
+	// Logging user command
+	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
+	logEvent(cmdLog)
+
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		return
 	}
 
+	match := false
 	for _, o := range uncommited_limit_orders {
 		if o.User == limitorder.User {
 			if o.Type == limitorder.Type {
+				match = true
 				o.Amount = limitorder.Amount
 			}
 		}
@@ -663,27 +722,54 @@ func setAmount(c *gin.Context) {
 
 	uncommited_limit_orders = append(uncommited_limit_orders, limitorder)
 
+	// TODO: not sure what constitutes this command not taking place
+	if !match {
+		// Logging error event
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
+		logEvent(errorLog)
+	}
+	transaction_counter += 1
 }
 
 func cancelSet(c *gin.Context) {
-	// health check code
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
+
+	var cmd string
+	if limitorder.Type == "buy" {
+		cmd = "CANCEL_SET_BUY"
+	} else {
+		cmd = "CANCEL_SET_SELL"
+	}
+
+	// Logging user command
+	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
+	logEvent(cmdLog)
+
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		return
 	}
 
+	match := false
 	j := 0
 	for _, o := range uncommited_limit_orders {
 		if o.User == limitorder.User {
 			if o.Type == limitorder.Type {
+				match = true
 				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
 			}
 		}
 		j++
 	}
 
+	// TODO: not sure what constitutes this command not taking place
+	if !match {
+		// Logging error event
+		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
+		logEvent(errorLog)
+	}
+	transaction_counter += 1
 }
 
 func setTrigger(c *gin.Context) {
@@ -692,9 +778,19 @@ func setTrigger(c *gin.Context) {
 	// (b)the user's cash account is decremented by the specified amount
 	// Resolved:   (c) when the trigger point is reached the user's stock account is updated to reflect the BUY transaction.
 
-	// [73] SET_SELL_TRIGGER,oY01WVirLr,S,30.04
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
+
+	var cmd string
+	if limitorder.Type == "buy" {
+		cmd = "SET_BUY_TRIGGER"
+	} else {
+		cmd = "SET_SELL_TRIGGER"
+	}
+
+	// logging user command
+	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	logEvent(cmdLog)
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
@@ -705,6 +801,8 @@ func setTrigger(c *gin.Context) {
 	for _, o := range uncommited_limit_orders {
 		if o.User == limitorder.User {
 			if o.Type == limitorder.Type {
+				transaction_counter += 1
+
 				o.Price = limitorder.Price
 				parsedJson, err := json.Marshal(o)
 				if err != nil {
@@ -727,7 +825,16 @@ func setTrigger(c *gin.Context) {
 		}
 		j++
 	}
-	fmt.Println("Did not find a limit order")
+
+	// Logging error event
+	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	logEvent(errorLog)
+	transaction_counter += 1
+
+	// Logging error event
+	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	logEvent(errorLog)
+	transaction_counter += 1
 
 }
 
@@ -753,26 +860,64 @@ func dumplog(c *gin.Context) {
 	if dumpLog.Id == "" {
 		logsd = readMany("logs", bson.D{})
 	} else {
-		logsd = readMany("logs", bson.D{{"username", dumpLog.Id}})
+		logsd = readMany("logs", bson.D{{"Username", dumpLog.Id}})
 	}
 	logs = mongo_read_logs(logsd)
 
 	// Send logs as JSON response
 	c.IndentedJSON(http.StatusOK, logs)
+
+	transaction_counter += 1
 }
 
+// Provides a summary to the client of the given user's transaction history and the current
+// status of their accounts as well as any set buy or sell triggers and their parameters
 func displaySummary(c *gin.Context) {
-	// health check code
-	c.String(http.StatusInternalServerError, "RESPONSE OK")
+	// params: userid
+	id := c.Param("id")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	db := c.MustGet("db").(*mongo.Database)
-	err := db.Client().Ping(ctx, readpref.SecondaryPreferred())
+	// Logging displaySummary command
+	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "DISPLAY_SUMMARY", Username: id}
+	logEvent(cmdLog)
 
-	if err == nil {
-		c.String(http.StatusOK, "ok")
-	} else {
-		log.Println(err)
+	// A summary of the given user's transaction history...
+	var logsd []bson.D
+	var logs []logEntry
+	logsd = readMany("logs", bson.D{{"Username", id}})
+	logs = mongo_read_logs(logsd)
+
+	var transactions []logEntry
+	for idx := range logs {
+		if logs[idx].LogType == "accountTransaction" {
+			transactions = append(transactions, logs[idx])
+		}
 	}
+
+	// ...and the current status of their accounts...
+	var cashBal []c_bal
+	r := rawreadField("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", 1}})
+	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
+
+	if reflect.DeepEqual(r, n) {
+		panic("Empty db read response")
+	}
+
+	cashBal = mongo_read_cashbal(r)
+	// TODO: can we read stocks user owns? to include in state of account
+
+	// ...as well as any set buy or sell triggers and their parameters...
+	var limitOrders []LimitOrder
+	for idx := range uncommited_limit_orders {
+		if uncommited_limit_orders[idx].User == id {
+			limitOrders = append(limitOrders, uncommited_limit_orders[idx])
+		}
+	}
+
+	// ...is displayed to the user.
+	data := displayCmdData{Transactions: transactions, CashBalance: cashBal, LimitOrders: limitOrders}
+
+	// Send data as JSON response
+	c.IndentedJSON(http.StatusOK, data)
+
+	transaction_counter += 1
 }
