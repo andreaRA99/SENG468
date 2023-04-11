@@ -73,9 +73,9 @@ func addQuoteToCaching(stock string, price1 float64) string {
 	if err != nil {
 		writeQuoteToCache(stock, price)
 		quoteInCache = price
-		fmt.Println("*************************")
-		fmt.Println(" I am bad at coding  " + stock + "with expiration")
-		fmt.Println("*************************")
+		//fmt.Println("*************************")
+		//fmt.Println(" I am bad at coding  " + stock + "with expiration")
+		//fmt.Println("*************************")
 		return quoteInCache
 		log.Fatal(err)
 	} else {
