@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"cache"
 )
 
 type LimitOrder struct {
@@ -28,6 +30,13 @@ var active_orders []LimitOrder
 
 func main() {
 
+	// example
+	value, err := cache.GetKeyWithStringVal("foo")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(value)
+
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
@@ -35,8 +44,7 @@ func main() {
 	bind := flag.String("bind", "localhost:8081", "host:port to listen on")
 	flag.Parse()
 
-	err := router.Run(*bind)
-	if err != nil {
+	if err := router.Run(*bind); err != nil {
 		panic(err)
 	}
 
