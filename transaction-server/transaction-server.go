@@ -62,6 +62,9 @@ type quote struct {
 	CKey  string // Crytohraphic key
 	// add timeout property
 }
+type quoteInCache struct {
+	Price string
+}
 
 type LimitOrder struct {
 	Stock  string  `json:"stock"`
@@ -156,10 +159,11 @@ func main() {
 
 	db = mongoClient.Database("daytrading")
 
-	connectToRedisCache()
-	SetKeyWithExpirationInSecs("srock", "500", 0)
-	GetKeyWithStringVal("srock")
-
+	//connectToRedisCache()
+	//SetKeyWithExpirationInSecs("srock", "500", 0)
+	//GetKeyWithStringVal("srock")
+	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
+	addQuoteToCaching("stx", 56.90)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
