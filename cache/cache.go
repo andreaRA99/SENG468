@@ -65,8 +65,7 @@ func addQuoteToCaching(stock string, price1 float64) string {
 
 	//newQuote.Price, _, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id)
 	//newQuote.Stock = stock
-	//price = strconv.FormatFloat(price1, 'f', -1, 64)
-	//price = strconv.FormatFloat(price1, 'f', -1, 64)
+
 	quoteInCache, err := GetKeyWithStringVal(stock)
 	price = strconv.FormatFloat(price1, 'f', -1, 64)
 	//ßfmt.Println(price + tmstmp)

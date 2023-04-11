@@ -163,7 +163,7 @@ func main() {
 	//SetKeyWithExpirationInSecs("srock", "500", 0)
 	//GetKeyWithStringVal("srock")
 	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
-	addQuoteToCaching("stx", 56.90)
+	addQuoteToCaching("str", 5.90)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -836,9 +836,9 @@ func setTrigger(c *gin.Context) {
 	transaction_counter += 1
 
 	// Logging error event
-	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
-	logEvent(errorLog)
-	transaction_counter += 1
+	// errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	// logEvent(errorLog)
+	// transaction_counter += 1
 
 }
 

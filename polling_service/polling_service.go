@@ -55,6 +55,7 @@ func get_price() {
 		fmt.Println(active_orders[j].Price)
 
 		if val > active_orders[j].Price && active_orders[j].Type == "sell" {
+			//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
 			//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
 			active_orders[j].Qty = active_orders[j].Amount
 			parsedJson, _ := json.Marshal(active_orders[j])
@@ -75,6 +76,8 @@ func get_price() {
 			active_orders = append(active_orders[:j], active_orders[j+1:]...)
 
 		} else if val < active_orders[j].Price && active_orders[j].Type == "buy" {
+			//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
+
 			active_orders[j].Qty = active_orders[j].Amount
 
 			parsedJson, _ := json.Marshal(active_orders[j])
