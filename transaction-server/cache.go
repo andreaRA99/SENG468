@@ -28,7 +28,7 @@ func connectToRedisCache() *redis.Client {
 	//fmt.Println("*************************")
 	//fmt.Println(pong)
 	//fmt.Println("*************************")
-	fmt.Println("Connnected")
+	//fmt.Println("Connnected")
 
 	return client
 }
@@ -52,42 +52,43 @@ func GetKeyWithStringVal(key string) (string, error) {
 }
 
 func writeQuoteToCache(symbol string, quote string) {
-	err := SetKeyWithExpirationInSecs(symbol, quote, 60)
+	err := SetKeyWithExpirationInSecs(symbol, quote, 0)
 	if err != nil {
 		fmt.Println("Error caching quote. Symbol: ", symbol, " Quote: ", quote, "error: ", err)
 	}
 }
 
-func addQuoteToCaching(id string, stock string) string {
+func addQuoteToCaching(stock string, price1 float64) string {
 	var quoteInCache string
-	var newQuote quote
-	var tmstmp string
+	//var newQuote quote
 	var price string
 
-	newQuote.Price, tmstmp, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id)
-	newQuote.Stock = stock
-
+	//newQuote.Price, _, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id)
+	//newQuote.Stock = stock
+	//price = strconv.FormatFloat(price1, 'f', -1, 64)
+	//price = strconv.FormatFloat(price1, 'f', -1, 64)
 	quoteInCache, err := GetKeyWithStringVal(stock)
-	price = strconv.FormatFloat(newQuote.Price, 'f', -1, 64)
+	price = strconv.FormatFloat(price1, 'f', -1, 64)
 	//ßfmt.Println(price + tmstmp)
 	if err != nil {
-		writeQuoteToCache(newQuote.Stock, price)
-		//fmt.Println("*************************")
-		//fmt.Println(" I am bad at coding  " + stock + "with expiration")
-		//fmt.Println("*************************")
+		writeQuoteToCache(stock, price)
+		quoteInCache = price
+		fmt.Println("*************************")
+		fmt.Println(" I am bad at coding  " + stock + "with expiration")
+		fmt.Println("*************************")
+		return quoteInCache
 		log.Fatal(err)
 	} else {
-
-		fmt.Println("*************************")
-		fmt.Println("*************************")
-		fmt.Println(quoteInCache + tmstmp)
-		fmt.Println("*************************")
-		fmt.Println("*************************")
+		// fmt.Println("*************************")
+		// fmt.Println("*************************")
+		// fmt.Println(quoteInCache)
+		// fmt.Println("*************************")
+		// fmt.Println("*************************")
+		quoteInCache, err := GetKeyWithStringVal(stock)
+		return quoteInCache
+		log.Fatal(err)
 
 	}
 
 	return quoteInCache
-	//fmt.Println(newQuote)
-	//return newQuote
-
 }
