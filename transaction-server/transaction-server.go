@@ -831,6 +831,11 @@ func setTrigger(c *gin.Context) {
 	logEvent(errorLog)
 	transaction_counter += 1
 
+	// Logging error event
+	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	logEvent(errorLog)
+	transaction_counter += 1
+
 }
 
 func dumplog(c *gin.Context) {
