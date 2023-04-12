@@ -15,7 +15,9 @@ services:
       - "6379:6379"
 
   polling_microservice:
-    build: ./polling_service/
+    build:
+      context: ./
+      dockerfile: polling_service/Dockerfile
     ports:
       - target: 8081
         published: 8081
@@ -25,7 +27,9 @@ services:
       - redis      
 
   transaction-server:
-    build: ./transaction-server/
+    build:
+      context: ./
+      dockerfile: transaction-server/Dockerfile
     ports:
       - target: 8080
         published: 8080

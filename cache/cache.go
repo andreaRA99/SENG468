@@ -58,7 +58,7 @@ func writeQuoteToCache(symbol string, quote string) {
 	}
 }
 
-func addQuoteToCaching(stock string, price1 float64) string {
+func AddQuoteToCaching(stock string, price1 float64) string {
 	var quoteInCache string
 	//var newQuote quote
 	var price string

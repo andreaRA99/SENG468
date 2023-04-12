@@ -22,6 +22,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"cache"
 )
 
 // mock db, actual requests will be sent to a Mongo DB
@@ -163,7 +165,7 @@ func main() {
 	//SetKeyWithExpirationInSecs("srock", "500", 0)
 	//GetKeyWithStringVal("srock")
 	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
-	addQuoteToCaching("str", 5.90)
+	cache.AddQuoteToCaching("str", 5.90)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
