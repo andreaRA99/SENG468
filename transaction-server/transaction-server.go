@@ -163,7 +163,7 @@ func main() {
 	//SetKeyWithExpirationInSecs("srock", "500", 0)
 	//GetKeyWithStringVal("srock")
 	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
-	addQuoteToCaching("stx", 56.90)
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
