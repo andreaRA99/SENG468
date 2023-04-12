@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cache"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,8 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	"cache"
 )
 
 type LimitOrder struct {
@@ -31,11 +30,7 @@ var active_orders []LimitOrder
 func main() {
 
 	// example
-	value, err := cache.GetKeyWithStringVal("foo")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(value)
+	cache.SetKeyWithExpirationInSecs("foo", 99.8, 0)
 
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
@@ -63,7 +58,7 @@ func get_price() {
 		fmt.Println(active_orders[j].Price)
 
 		if val > active_orders[j].Price && active_orders[j].Type == "sell" {
-			//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
+			//cache.SetKeyWithExpirationInSecs("foo", , 0)
 			//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
 			active_orders[j].Qty = active_orders[j].Amount
 			parsedJson, _ := json.Marshal(active_orders[j])

@@ -1,4 +1,4 @@
-package cache
+package main
 
 import (
 	"errors"
@@ -33,11 +33,9 @@ func connectToRedisCache() *redis.Client {
 	return client
 }
 
-func SetKeyWithExpirationInSecs(key string, val float64, expSecs uint) error {
-	var price string
+func SetKeyWithExpirationInSecs(key string, val string, expSecs uint) error {
 	secondsDelta := time.Duration(expSecs) * time.Second
-	price = strconv.FormatFloat(val, 'f', -1, 64)
-	err := connectToRedisCache().Set(key, price, secondsDelta).Err()
+	err := connectToRedisCache().Set(key, val, secondsDelta).Err()
 
 	if err != nil {
 		return errors.New("Could not set key " + key + "with expiration")
@@ -60,14 +58,15 @@ func writeQuoteToCache(symbol string, quote string) {
 	}
 }
 
-func AddQuoteToCaching(stock string, price1 float64) string {
+func addQuoteToCaching(stock string, price1 float64) string {
 	var quoteInCache string
 	//var newQuote quote
 	var price string
 
 	//newQuote.Price, _, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id)
 	//newQuote.Stock = stock
-
+	//price = strconv.FormatFloat(price1, 'f', -1, 64)
+	//price = strconv.FormatFloat(price1, 'f', -1, 64)
 	quoteInCache, err := GetKeyWithStringVal(stock)
 	price = strconv.FormatFloat(price1, 'f', -1, 64)
 	//ßfmt.Println(price + tmstmp)
