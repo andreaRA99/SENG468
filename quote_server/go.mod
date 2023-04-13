@@ -1,4 +1,4 @@
-module polling_service
+module quote_server
 
 go 1.20
 

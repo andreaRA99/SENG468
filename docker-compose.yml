@@ -43,7 +43,17 @@ services:
     command: --bind :8080
     environment:
       DATABASE_URI: mongodb://db/?directConnection=true
-      
+
+  quote_server:
+    build:
+      context: ./
+      dockerfile: quote_server/Dockerfile
+    ports:
+      - target: 8083
+        published: 8083
+        protocol: tcp
+    command: --bind :8083
+           
 
   #build-test:
   #  build: ./testing/

@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	//"cache"
+	"cache"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -63,7 +63,7 @@ func quote_price(s string, u string)( quote_hit){
 	r.username = u
 	r.sym = s
 	parsedJson, _ := json.Marshal(r)
-	req, err := http.NewRequest(http.MethodPost, "http://localhost:8083/", bytes.NewBuffer(parsedJson))
+	req, err := http.NewRequest(http.MethodPost, "http://quote_server:8083/", bytes.NewBuffer(parsedJson))
 	res, err := http.DefaultClient.Do(req)
 	reads, err := ioutil.ReadAll(res.Body)
 	fmt.Printf("%s \n" , reads)
@@ -86,6 +86,8 @@ func get_price(c *gin.Context){
 		return
 	}
 	q := quote_price(quote_req.sym, quote_req.username)
+
+	cache.SetKeyWithExpirationInSecs(quote_req.sym, q.Price, 0)
    c.IndentedJSON(http.StatusOK, q)
 }
 
@@ -101,7 +103,7 @@ func do_limit_order() {
 
 
 		if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
-			//cache.SetKeyWithExpirationInSecs("foo", , 0)
+			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
 			//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
 			active_orders[j].Qty = active_orders[j].Amount
 			parsedJson, _ := json.Marshal(active_orders[j])
@@ -118,7 +120,7 @@ func do_limit_order() {
 
 		} else if val.Price < active_orders[j].Price && active_orders[j].Type == "buy" {
 			//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
-
+			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
 			active_orders[j].Qty = active_orders[j].Amount
 
 			parsedJson, _ := json.Marshal(active_orders[j])
