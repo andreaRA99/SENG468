@@ -7,6 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"strings"
+	"strconv"
+	"log"
 
 	"net/http"
 	"time"
@@ -24,8 +28,8 @@ type LimitOrder struct {
 }
 
 type req struct{
-	sym string 
-	username string 
+	Sym string `json:"Sym"`
+	Username string `json:"Username"`
 }
 
 type quote_hit struct{
@@ -56,12 +60,61 @@ func main() {
 	}
 
 }
+func getQuoteUvic(sym string, username string) (float64, int, string) {
+	// GET QUOTE FROM UVIC QUOTE SERVER
+	strEcho := sym + " " + username + "\n"
+	servAddr := "quoteserve.seng.uvic.ca:4444"
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+	if err != nil {
+		fmt.Println("\nResolveTCPAddr error: ", err)
+		panic(err)
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		fmt.Println("\nDialTCP error: ", err)
+		panic(err)
+	}
+
+	//write to server SYM being requested and user
+	_, err = conn.Write([]byte(strEcho))
+	if err != nil {
+		fmt.Println("\nWrite error: ", err)
+		panic(err)
+	}
+
+	//reading from server
+	_reply := make([]byte, 1024)
+
+	_, err = conn.Read(_reply)
+	if err != nil {
+		fmt.Println("\nRead error: ", err)
+		panic(err)
+	}
+
+	//parsing reply from server
+	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
+	quotePrice, err := strconv.ParseFloat(reply[0], 64)
+	if err != nil {
+		panic(err)
+	}
+	timestamp, err := strconv.Atoi(reply[3])
+	if err != nil {
+		log.Fatal(err)
+	}
+	cryptKey := reply[4]
+
+	conn.Close()
+
+	return quotePrice, timestamp, cryptKey
+}
 
 func quote_price(s string, u string)( quote_hit){
 	
 	var r req
-	r.username = u
-	r.sym = s
+	r.Username = u
+	r.Sym = s
 	parsedJson, _ := json.Marshal(r)
 	req, err := http.NewRequest(http.MethodPost, "http://quote_server:8083/", bytes.NewBuffer(parsedJson))
 	res, err := http.DefaultClient.Do(req)
@@ -85,9 +138,11 @@ func get_price(c *gin.Context){
 		c.IndentedJSON(http.StatusOK, err)
 		return
 	}
-	q := quote_price(quote_req.sym, quote_req.username)
-
-	cache.SetKeyWithExpirationInSecs(quote_req.sym, q.Price, 0)
+	q := quote_price(quote_req.Sym, quote_req.Username)
+	fmt.Println("BEFORE CACHE: ")
+	fmt.Printf("SYM: %s, USER: %s\n", quote_req.Sym, quote_req.Username)
+	fmt.Printf("KEY: %s, VAL: %f\n", quote_req.Sym, q.Price)
+	cache.SetKeyWithExpirationInSecs(quote_req.Sym, q.Price, 0)
    c.IndentedJSON(http.StatusOK, q)
 }
 

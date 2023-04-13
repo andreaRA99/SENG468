@@ -38,6 +38,7 @@ func SetKeyWithExpirationInSecs(key string, pricestck float64, expSecs uint) err
 	secondsDelta := time.Duration(expSecs) * time.Second
 	val = strconv.FormatFloat(pricestck, 'f', -1, 64)
 
+
 	err := connectToRedisCache().Set(key, val, secondsDelta).Err()
 
 	if err != nil {

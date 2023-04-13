@@ -8,13 +8,10 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 	"io/ioutil"
 	"cache"
@@ -43,8 +40,8 @@ type c_bal struct {
 }
 
 type req struct{
-	sym string 
-	username string 
+	Sym string `json:"Sym"`
+	Username string `json:"Username"`
 }
 
 type quote_hit struct{
@@ -223,11 +220,7 @@ func getAccount(c *gin.Context) {
 		return
 	}
 	// Else account not found
-	err := insert("users", bson.D{{"user_id", id}})
-	if err != "ok" {
-		panic(err)
-	}
-
+	createAcc(id)
 	c.IndentedJSON(http.StatusOK, "success")
 }
 
@@ -283,7 +276,6 @@ func Quote(c *gin.Context) {
 	q.Stock = stock
 	q.CKey = theQuote.Cryptokey
 
-	// newQuote should be sent to cache
 	c.IndentedJSON(http.StatusOK, q)
 
 	transaction_counter += 1
@@ -298,24 +290,24 @@ func fetchQuote(id string, stock string) quote_hit {
 	val, err := cache.GetKeyWithStringVal(stock)
 
 	if val != "" {
-		fmt.Println(val)
 		newQuote.Price, err = strconv.ParseFloat(val, 64)
 		if err != nil {
 			fmt.Println("COULD NOT CONVERT")
-			fmt.Println(val)
 		}
 		return newQuote
 	}
-	fmt.Println("NOT IN CACHE")
+	// Not in cache
 
 	var s req
 
-	s.sym = stock
-	s.username = id
+	s.Sym = stock
+	s.Username = id
 
 	
 	parsedJson, err := json.Marshal(s)
-
+	if err != nil {
+		panic(err)
+	}
 	req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/quote", bytes.NewBuffer(parsedJson))
 	if err != nil {
 		panic(err)
@@ -326,7 +318,6 @@ func fetchQuote(id string, stock string) quote_hit {
 		fmt.Println(err)
 	}
 	reads, err := ioutil.ReadAll(res.Body)
-	fmt.Printf("%s \n" , reads)
 	if err != nil {
 		fmt.Println("ERROR")
 		fmt.Println(err)
@@ -346,60 +337,9 @@ func fetchQuote(id string, stock string) quote_hit {
 	return newQuote
 }
 
-func mockQuoteServerHit(sym string, username string) (float64, int, string) {
-	return rand.Float64() * 300, int(time.Now().Unix()), " thisISaCRYPTOkey "
-}
 
-func getQuoteTEMP(sym string, username string) (float64, int, string) {
-	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
-	//make connection to server
-	strEcho := sym + " " + username + "\n"
-	servAddr := "quoteserve.seng.uvic.ca:4444"
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
-	if err != nil {
-		fmt.Println("\nResolveTCPAddr error: ", err)
-		panic(err)
-	}
 
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		fmt.Println("\nDialTCP error: ", err)
-		panic(err)
-	}
-
-	//write to server SYM being requested and user
-	_, err = conn.Write([]byte(strEcho))
-	if err != nil {
-		fmt.Println("\nWrite error: ", err)
-		panic(err)
-	}
-
-	//reading from server
-	_reply := make([]byte, 1024)
-
-	_, err = conn.Read(_reply)
-	if err != nil {
-		fmt.Println("\nRead error: ", err)
-		panic(err)
-	}
-
-	//parsing reply from server
-	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice, err := strconv.ParseFloat(reply[0], 64)
-	if err != nil {
-		panic(err)
-	}
-	timestamp, err := strconv.Atoi(reply[3])
-	if err != nil {
-		log.Fatal(err)
-	}
-	cryptKey := reply[4]
-
-	conn.Close()
-
-	return quotePrice, timestamp, cryptKey
-}
 
 func buyStock(c *gin.Context) {
 	var newOrder order
@@ -440,24 +380,8 @@ func buyStock(c *gin.Context) {
 		} else {
 			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
-	case int64:
-		a := float64(v)
-		if a > newOrder.Amount {
-			buys = append(buys, newOrder)
-			c.IndentedJSON(http.StatusOK, newOrder)
-			return
-		} else {
-			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-		}
-	case int32:
-		a := float64(v)
-		if a > newOrder.Amount {
-			buys = append(buys, newOrder)
-			c.IndentedJSON(http.StatusOK, newOrder)
-			return
-		} else {
-			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-		}
+
+
 	}
 }
 
