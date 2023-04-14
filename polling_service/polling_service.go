@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"cache"
 	"encoding/json"
@@ -93,17 +94,15 @@ func quote_price(servAddr string, sym string, username string) quote_hit {
 		panic(err)
 	}
 
-	//reading from server
-	_reply := make([]byte, 1024)
-
-	_, err = conn.Read(_reply)
+	reader := bufio.NewReader(conn)
+	replyLine, err := reader.ReadString('\n')
 	if err != nil {
 		fmt.Println("\nRead error: ", err)
 		panic(err)
 	}
 
 	//parsing reply from server
-	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
+	reply := strings.Split(strings.TrimRight(replyLine, "\n"), ",")
 	quotePrice, err := strconv.ParseFloat(reply[0], 64)
 	if err != nil {
 		panic(err)
