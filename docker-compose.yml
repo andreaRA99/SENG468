@@ -7,7 +7,7 @@ services:
       - type: tmpfs
         target: /tmp
 
-  redis: 
+  redis:
     container_name: redisCache
     image: redis
     init: true
@@ -24,7 +24,7 @@ services:
         protocol: tcp
     command: --bind :8081
     depends_on:
-      - redis      
+      - redis
 
   transaction-server:
     build:
@@ -53,9 +53,9 @@ services:
         published: 8083
         protocol: tcp
     command: --bind :8083
-           
+
 
   #build-test:
   #  build: ./testing/
-  #  links: 
+  #  links:
   #    - transaction-server
