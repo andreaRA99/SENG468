@@ -37,9 +37,8 @@ var accounts = []account{
 }
 
 type holding struct {
-	symbol   string
-	quantity float64
-	pps      float64
+	Symbol   string `json:"symbol"`
+	Quantity int    `json:"quantity"`
 }
 
 type balanceDif struct {
@@ -51,8 +50,9 @@ type users struct {
 	user_id string
 }
 
-type c_bal struct {
-	Cash_balance float64 `json:"cash_balance"`
+type accStatus struct {
+	Cash_balance float64   `json:"cash_balance"`
+	Stocks       []holding `json:"stocks"`
 }
 
 type quote struct {
@@ -84,7 +84,7 @@ type order struct {
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
-	CashBalance  []c_bal      `json:"cashBalance"`
+	Acc_Status   []accStatus  `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
@@ -830,12 +830,6 @@ func setTrigger(c *gin.Context) {
 	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
 	logEvent(errorLog)
 	transaction_counter += 1
-
-	// Logging error event
-	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
-	logEvent(errorLog)
-	transaction_counter += 1
-
 }
 
 func dumplog(c *gin.Context) {
@@ -873,7 +867,7 @@ func dumplog(c *gin.Context) {
 // Provides a summary to the client of the given user's transaction history and the current
 // status of their accounts as well as any set buy or sell triggers and their parameters
 func displaySummary(c *gin.Context) {
-	// params: userid
+	// Params: userid
 	id := c.Param("id")
 
 	// Logging displaySummary command
@@ -886,24 +880,16 @@ func displaySummary(c *gin.Context) {
 	logsd = readMany("logs", bson.D{{"Username", id}})
 	logs = mongo_read_logs(logsd)
 
-	var transactions []logEntry
-	for idx := range logs {
-		if logs[idx].LogType == "accountTransaction" {
-			transactions = append(transactions, logs[idx])
-		}
-	}
-
 	// ...and the current status of their accounts...
-	var cashBal []c_bal
-	r := rawreadField("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", 1}})
+	var acc_status []accStatus
+	r := readMany("users", bson.D{})
 	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
 
 	if reflect.DeepEqual(r, n) {
 		panic("Empty db read response")
 	}
 
-	cashBal = mongo_read_cashbal(r)
-	// TODO: can we read stocks user owns? to include in state of account
+	acc_status = mongo_read_acc_status(r)
 
 	// ...as well as any set buy or sell triggers and their parameters...
 	var limitOrders []LimitOrder
@@ -914,7 +900,7 @@ func displaySummary(c *gin.Context) {
 	}
 
 	// ...is displayed to the user.
-	data := displayCmdData{Transactions: transactions, CashBalance: cashBal, LimitOrders: limitOrders}
+	data := displayCmdData{Transactions: logs, Acc_Status: acc_status, LimitOrders: limitOrders}
 
 	// Send data as JSON response
 	c.IndentedJSON(http.StatusOK, data)

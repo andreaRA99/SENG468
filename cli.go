@@ -37,12 +37,18 @@ type logEntry struct {
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
-	CashBalance  []c_bal      `json:"cashBalance"`
+	Acc_Status   []accStatus  `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
-type c_bal struct {
-	Cash_balance float64 `json:"cash_balance"`
+type accStatus struct {
+	Cash_balance float64   `json:"cash_balance"`
+	Stocks       []holding `json:"stocks"`
+}
+
+type holding struct {
+	Symbol   string `json:"symbol"`
+	Quantity int    `json:"quantity"`
 }
 
 type LimitOrder struct {
@@ -308,14 +314,20 @@ func displaySummary(resBody []byte) {
 		data, _ := xml.MarshalIndent(transaction, "\t", "  ")
 		fmt.Printf("%s\n\n", string(data))
 	}
-	fmt.Println("Status of Accounts:")
+	fmt.Println("Current Status of Accounts:")
 	fmt.Println()
-	fmt.Println("\tBalance: ", resp.CashBalance[0].Cash_balance)
+	fmt.Println("\tBalance: ", resp.Acc_Status[0].Cash_balance)
 	fmt.Println()
-	fmt.Println("Triggers:")
+	fmt.Printf("\tStocks Owned:\n")
+	for idx := range resp.Acc_Status[0].Stocks {
+		fmt.Printf("\n\t\tSymbol: %s\n", resp.Acc_Status[0].Stocks[idx].Symbol)
+		fmt.Printf("\t\tQuantity: %d\n", resp.Acc_Status[0].Stocks[idx].Quantity)
+	}
+	fmt.Println()
+	fmt.Println("\tTriggers:")
 	fmt.Println()
 	for _, order := range resp.LimitOrders {
-		lmo, _ := xml.MarshalIndent(order, "\t", "  ")
+		lmo, _ := xml.MarshalIndent(order, "\t\t", "  ")
 		fmt.Printf("%s\n\n", string(lmo))
 	}
 }
