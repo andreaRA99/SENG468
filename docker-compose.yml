@@ -25,6 +25,9 @@ services:
     command: --bind :8081
     depends_on:
       - redis
+      - quote_server
+    environment:
+      QUOTE_SERVER: quote_server:4444
 
   transaction-server:
     build:

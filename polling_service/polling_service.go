@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -47,8 +48,18 @@ func main() {
 	// example
 	//cache.SetKeyWithExpirationInSecs("foo", 99.8, 0)
 
+	quoteServer, found := os.LookupEnv("QUOTE_SERVER")
+	if !found {
+		log.Fatalln("No QUOTE_SERVER")
+	}
+
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
+
+	router.Use(func(ctx *gin.Context) {
+		ctx.Set("quoteServer", quoteServer)
+		ctx.Next()
+	})
 
 	router.POST("/new_limit", new_limit)
 	router.POST("/quote", get_price)
@@ -60,10 +71,8 @@ func main() {
 	}
 
 }
-func getQuoteUvic(sym string, username string) (float64, int, string) {
-	// GET QUOTE FROM UVIC QUOTE SERVER
+func quote_price(servAddr string, sym string, username string) quote_hit {
 	strEcho := sym + " " + username + "\n"
-	servAddr := "quoteserve.seng.uvic.ca:4444"
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
@@ -107,28 +116,11 @@ func getQuoteUvic(sym string, username string) (float64, int, string) {
 
 	conn.Close()
 
-	return quotePrice, timestamp, cryptKey
-}
-
-func quote_price(s string, u string) quote_hit {
-
-	var r req
-	r.Username = u
-	r.Sym = s
-	parsedJson, _ := json.Marshal(r)
-	req, err := http.NewRequest(http.MethodPost, "http://quote_server:8083/", bytes.NewBuffer(parsedJson))
-	res, err := http.DefaultClient.Do(req)
-	reads, err := ioutil.ReadAll(res.Body)
-	fmt.Printf("%s \n", reads)
-	if err != nil {
-		fmt.Println("ERROR")
-		fmt.Println(err)
+	return quote_hit{
+		Price: quotePrice,
+		Timestamp: timestamp,
+		Cryptokey: cryptKey,
 	}
-
-	var m quote_hit
-	json.Unmarshal(reads, &m)
-
-	return m
 }
 
 func get_price(c *gin.Context) {
@@ -138,7 +130,7 @@ func get_price(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, err)
 		return
 	}
-	q := quote_price(quote_req.Sym, quote_req.Username)
+	q := quote_price(c.MustGet("quoteServer").(string), quote_req.Sym, quote_req.Username)
 	fmt.Println("BEFORE CACHE: ")
 	fmt.Printf("SYM: %s, USER: %s\n", quote_req.Sym, quote_req.Username)
 	fmt.Printf("KEY: %s, VAL: %f\n", quote_req.Sym, q.Price)
@@ -146,11 +138,11 @@ func get_price(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, q)
 }
 
-func do_limit_order() {
+func do_limit_order(quoteServer string) {
 	j := 0
 	for len(active_orders) > 0 {
 		// do: update cache
-		val := quote_price(active_orders[j].Stock, active_orders[j].User)
+		val := quote_price(quoteServer, active_orders[j].Stock, active_orders[j].User)
 
 		if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
 			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
@@ -206,6 +198,8 @@ func do_limit_order() {
 }
 
 func new_limit(c *gin.Context) {
+	quoteServer := c.MustGet("quoteServer").(string)
+
 	var limitorder LimitOrder
 	if err := c.BindJSON(&limitorder); err != nil {
 		c.IndentedJSON(http.StatusOK, err)
@@ -214,7 +208,7 @@ func new_limit(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "ok")
 	active_orders = append(active_orders, limitorder)
 	if len(active_orders) == 1 {
-		go do_limit_order()
+		go do_limit_order(quoteServer)
 	} else {
 		return
 	}
