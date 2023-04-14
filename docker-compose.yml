@@ -25,6 +25,9 @@ services:
     command: --bind :8081
     depends_on:
       - redis
+      - quote_server
+    environment:
+      QUOTE_SERVER: quote_server:4444
 
   transaction-server:
     build:
@@ -45,14 +48,12 @@ services:
       DATABASE_URI: mongodb://db/?directConnection=true
 
   quote_server:
-    build:
-      context: ./
-      dockerfile: quote_server/Dockerfile
+    build: ./quote_server
     ports:
-      - target: 8083
-        published: 8083
+      - target: 4444
+        published: 4444
         protocol: tcp
-    command: --bind :8083
+    command: --bind :4444
 
 
   #build-test:
