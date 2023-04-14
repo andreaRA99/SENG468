@@ -2,15 +2,18 @@ package main
 
 import (
 	"bytes"
+	"cache"
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
-	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,18 +22,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
-
-// mock db, actual requests will be sent to a Mongo DB
-type account struct {
-	ID      string  `json:"id"`
-	Balance float64 `json:"balance"`
-}
-
-var accounts = []account{
-	{ID: "1", Balance: 100},
-	{ID: "2", Balance: 200},
-	{ID: "3", Balance: 300},
-}
 
 type holding struct {
 	Symbol   string `json:"symbol"`
@@ -51,12 +42,26 @@ type accStatus struct {
 	Stocks       []holding `json:"stocks"`
 }
 
+type req struct {
+	Sym      string `json:"Sym"`
+	Username string `json:"Username"`
+}
+
+type quote_hit struct {
+	Timestamp int     `json:"Timestamp"`
+	Price     float64 `json:"Price"`
+	Cryptokey string  `json:"Cryptokey"`
+}
+
 type quote struct {
 	//ID    string
 	Stock string
 	Price float64
 	CKey  string // Crytohraphic key
 	// add timeout property
+}
+type quoteInCache struct {
+	Price string
 }
 
 type LimitOrder struct {
@@ -131,8 +136,7 @@ func main() {
 	router.GET("/users/:id", getAccount)
 	router.GET("/health", healthcheck)
 
-	// GET RID OF LATER, FOR DEBUGGING PURPOSES
-	router.GET("/users", getAll) // Do we even need?? Not really
+	router.GET("/users", getAll)
 	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
 	router.GET("/quotes", getQuotes)
@@ -152,9 +156,10 @@ func main() {
 
 	db = mongoClient.Database("daytrading")
 
-	connectToRedisCache()
-	SetKeyWithExpirationInSecs("srock", "500", 0)
-	GetKeyWithStringVal("srock")
+	//connectToRedisCache()
+	//SetKeyWithExpirationInSecs("srock", "500", 0)
+	//GetKeyWithStringVal("srock")
+	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
 
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -189,7 +194,7 @@ func getAll(c *gin.Context) {
 
 func exists(ID string) bool {
 	r := readOne("users", bson.D{{"user_id", ID}})
-	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
+	n := bson.D{{"none", "none"}}
 
 	if !reflect.DeepEqual(r, n) {
 		return true
@@ -217,18 +222,13 @@ func getAccount(c *gin.Context) {
 		return
 	}
 	// Else account not found
-	err := insert("users", bson.D{{"user_id", id}})
-	if err != "ok" {
-		panic(err)
-	}
-
+	createAcc(id)
 	c.IndentedJSON(http.StatusOK, "success")
 }
 
 func addBalance(c *gin.Context) {
 	var newBalDif balanceDif
 
-	// Calling BindJSON to bind the recieved JSON to new BalDif
 	if err := c.BindJSON(&newBalDif); err != nil {
 		return
 	}
@@ -271,39 +271,67 @@ func Quote(c *gin.Context) {
 
 	theQuote := fetchQuote(id, stock)
 
-	// newQuote should be sent to cache
-	c.IndentedJSON(http.StatusOK, theQuote)
+	var q quote
+
+	q.Price = theQuote.Price
+	q.Stock = stock
+	q.CKey = theQuote.Cryptokey
+
+	c.IndentedJSON(http.StatusOK, q)
 
 	transaction_counter += 1
 }
 
-func fetchQuote(id string, stock string) quote {
-	var newQuote quote
+func fetchQuote(id string, stock string) quote_hit {
 
 	// check if quote for specified stock exists
-	for _, o := range quotes {
-		if o.Stock == stock {
-			return o
+	var newQuote quote_hit
+
+	val, err := cache.GetKeyWithStringVal(stock)
+
+	if val != "" {
+		newQuote.Price, err = strconv.ParseFloat(val, 64)
+		if err != nil {
+			fmt.Println("COULD NOT CONVERT")
 		}
+		return newQuote
+	}
+	// Not in cache
+
+	var s req
+
+	s.Sym = stock
+	s.Username = id
+
+	parsedJson, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/quote", bytes.NewBuffer(parsedJson))
+	if err != nil {
+		panic(err)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("ERROR")
+		fmt.Println(err)
+	}
+	reads, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("ERROR")
+		fmt.Println(err)
 	}
 
-	// else:  HITTING QUOTE SERVER
-	// Currently: Read around type cache, do we want read through??
-	var tmstmp int
-	newQuote.Price, tmstmp, newQuote.CKey = mockQuoteServerHit(newQuote.Stock, id) //simulation of quote hit
-	newQuote.Stock = stock
-
-	quotes = append(quotes, newQuote)
+	json.Unmarshal(reads, &newQuote)
+	if err != nil {
+		panic(err)
+	}
 
 	// Logging quote server hit
-	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Price: newQuote.Price, StockSymbol: stock, Username: id, QuoteServerTime: tmstmp, Cryptokey: newQuote.CKey}
+	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Price: newQuote.Price, StockSymbol: stock, Username: id, QuoteServerTime: newQuote.Timestamp, Cryptokey: newQuote.Cryptokey}
 	logEvent(QSHitLog)
 
 	return newQuote
-}
-
-func mockQuoteServerHit(sym string, username string) (float64, int, string) {
-	return rand.Float64() * 300, int(time.Now().Unix()), " thisISaCRYPTOkey "
 }
 
 func buyStock(c *gin.Context) {
@@ -345,24 +373,7 @@ func buyStock(c *gin.Context) {
 		} else {
 			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
-	case int64:
-		a := float64(v)
-		if a > newOrder.Amount {
-			buys = append(buys, newOrder)
-			c.IndentedJSON(http.StatusOK, newOrder)
-			return
-		} else {
-			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-		}
-	case int32:
-		a := float64(v)
-		if a > newOrder.Amount {
-			buys = append(buys, newOrder)
-			c.IndentedJSON(http.StatusOK, newOrder)
-			return
-		} else {
-			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
-		}
+
 	}
 }
 

@@ -17,9 +17,9 @@ import requests
 	Qty    int
 """
 
-
-r = '{"ID": "test_user", "Stock":"ccc", "Amount": 9, "Price":40, "Type":"buy"}'
-n = requests.post("http://localhost:8081/new_limit", data=r).content.decode()
+r = '{"username": "test_user", "sym":"ccc"}'
+#r = '{"ID": "test_user", "Stock":"ccc", "Amount": 9, "Price":40, "Type":"buy"}'
+n = requests.post("http://localhost:8081/quote", data=r).content.decode()
 print(n)
 
 #r = '{"ID": "test_user", "Stock":"ccc", "Amount": 9, "Price":100, "Type":"sell"}'
