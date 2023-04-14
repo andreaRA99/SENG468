@@ -72,54 +72,54 @@ func main() {
 	}
 
 }
-func quote_price(servAddr string, sym string, username string) quote_hit {
+func quote_price(servAddr string, sym string, username string) (quote_hit, error) {
 	strEcho := sym + " " + username + "\n"
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		fmt.Println("\nResolveTCPAddr error: ", err)
-		panic(err)
+		return quote_hit{}, err
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		fmt.Println("\nDialTCP error: ", err)
-		panic(err)
+		return quote_hit{}, err
 	}
+
+	defer conn.Close()
 
 	//write to server SYM being requested and user
 	_, err = conn.Write([]byte(strEcho))
 	if err != nil {
 		fmt.Println("\nWrite error: ", err)
-		panic(err)
+		return quote_hit{}, err
 	}
 
 	reader := bufio.NewReader(conn)
 	replyLine, err := reader.ReadString('\n')
 	if err != nil {
 		fmt.Println("\nRead error: ", err)
-		panic(err)
+		return quote_hit{}, err
 	}
 
 	//parsing reply from server
 	reply := strings.Split(strings.TrimRight(replyLine, "\n"), ",")
 	quotePrice, err := strconv.ParseFloat(reply[0], 64)
 	if err != nil {
-		panic(err)
+		return quote_hit{}, err
 	}
 	timestamp, err := strconv.Atoi(reply[3])
 	if err != nil {
-		log.Fatal(err)
+		return quote_hit{}, err
 	}
 	cryptKey := reply[4]
-
-	conn.Close()
 
 	return quote_hit{
 		Price: quotePrice,
 		Timestamp: timestamp,
 		Cryptokey: cryptKey,
-	}
+	}, nil
 }
 
 func get_price(c *gin.Context) {
@@ -129,7 +129,13 @@ func get_price(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, err)
 		return
 	}
-	q := quote_price(c.MustGet("quoteServer").(string), quote_req.Sym, quote_req.Username)
+
+	q, err := quote_price(c.MustGet("quoteServer").(string), quote_req.Sym, quote_req.Username)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, err)
+		return
+	}
+
 	fmt.Println("BEFORE CACHE: ")
 	fmt.Printf("SYM: %s, USER: %s\n", quote_req.Sym, quote_req.Username)
 	fmt.Printf("KEY: %s, VAL: %f\n", quote_req.Sym, q.Price)
@@ -141,49 +147,50 @@ func do_limit_order(quoteServer string) {
 	j := 0
 	for len(active_orders) > 0 {
 		// do: update cache
-		val := quote_price(quoteServer, active_orders[j].Stock, active_orders[j].User)
+		val, err := quote_price(quoteServer, active_orders[j].Stock, active_orders[j].User)
+		if err != nil {
+			if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
+				cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
+				//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
+				active_orders[j].Qty = active_orders[j].Amount
+				parsedJson, _ := json.Marshal(active_orders[j])
+				req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell", bytes.NewBuffer(parsedJson))
+				_, err = http.DefaultClient.Do(req)
+				req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell/commit", bytes.NewBuffer(parsedJson))
+				_, err = http.DefaultClient.Do(req)
+				//fmt.Println(res)
+				if err != nil {
+					fmt.Println("ERROR")
+					fmt.Println(err)
+				}
+				active_orders = append(active_orders[:j], active_orders[j+1:]...)
 
-		if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
-			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
-			//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
-			active_orders[j].Qty = active_orders[j].Amount
-			parsedJson, _ := json.Marshal(active_orders[j])
-			req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell", bytes.NewBuffer(parsedJson))
-			_, err = http.DefaultClient.Do(req)
-			req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell/commit", bytes.NewBuffer(parsedJson))
-			_, err = http.DefaultClient.Do(req)
-			//fmt.Println(res)
-			if err != nil {
-				fmt.Println("ERROR")
-				fmt.Println(err)
+			} else if val.Price < active_orders[j].Price && active_orders[j].Type == "buy" {
+				//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
+				cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
+				active_orders[j].Qty = active_orders[j].Amount
+
+				parsedJson, _ := json.Marshal(active_orders[j])
+				req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy", bytes.NewBuffer(parsedJson))
+				res, err := http.DefaultClient.Do(req)
+
+				resBody, err := ioutil.ReadAll(res.Body)
+				fmt.Printf("RESBODY: %s\n", resBody)
+				if err != nil {
+					fmt.Println("ERROR")
+					fmt.Println(err)
+				}
+
+				req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy/commit", bytes.NewBuffer(parsedJson))
+				res, err = http.DefaultClient.Do(req)
+				resBody, err = ioutil.ReadAll(res.Body)
+				if err != nil {
+					fmt.Println("ERROR")
+					fmt.Println(err)
+				}
+
+				active_orders = append(active_orders[:j], active_orders[j+1:]...)
 			}
-			active_orders = append(active_orders[:j], active_orders[j+1:]...)
-
-		} else if val.Price < active_orders[j].Price && active_orders[j].Type == "buy" {
-			//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
-			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
-			active_orders[j].Qty = active_orders[j].Amount
-
-			parsedJson, _ := json.Marshal(active_orders[j])
-			req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy", bytes.NewBuffer(parsedJson))
-			res, err := http.DefaultClient.Do(req)
-
-			resBody, err := ioutil.ReadAll(res.Body)
-			fmt.Printf("RESBODY: %s\n", resBody)
-			if err != nil {
-				fmt.Println("ERROR")
-				fmt.Println(err)
-			}
-
-			req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy/commit", bytes.NewBuffer(parsedJson))
-			res, err = http.DefaultClient.Do(req)
-			resBody, err = ioutil.ReadAll(res.Body)
-			if err != nil {
-				fmt.Println("ERROR")
-				fmt.Println(err)
-			}
-
-			active_orders = append(active_orders[:j], active_orders[j+1:]...)
 		}
 
 		time.Sleep(1 * time.Second) // Math goes here
