@@ -4,18 +4,26 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func mongo_read_cashbal(v []bson.D) []c_bal {
-	var temp []c_bal
+func mongo_read_acc_status(v []bson.D) []accStatus {
+	var temp []accStatus
+	var temp_stocks []holding
+
 	for _, s := range v {
-		var e c_bal
+		var e accStatus
 		for _, kv_pair := range s {
-			// tempk := kv_pair.Key
+			tempk := kv_pair.Key
 			tempv := kv_pair.Value
 			switch d := tempv.(type) {
 			case float64:
 				e.Cash_balance = d
+			case int32:
+				var temp_holding holding
+				temp_holding.Symbol = tempk
+				temp_holding.Quantity = int(d)
+				temp_stocks = append(temp_stocks, temp_holding)
 			}
 		}
+		e.Stocks = temp_stocks
 		temp = append(temp, e)
 	}
 	return temp
@@ -92,4 +100,3 @@ func mongo_read_logs(v []bson.D) []logEntry {
 	// fmt.Println("Leaving mongo utils")
 	return temp
 }
-

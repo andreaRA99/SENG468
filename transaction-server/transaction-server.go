@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"cache"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
@@ -13,9 +15,6 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	"io/ioutil"
-	"cache"
-	
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -24,7 +23,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-
+type holding struct {
+	Symbol   string `json:"symbol"`
+	Quantity int    `json:"quantity"`
+}
 
 type balanceDif struct {
 	ID     string  `json:"id"`
@@ -35,19 +37,20 @@ type users struct {
 	user_id string
 }
 
-type c_bal struct {
-	Cash_balance float64 `json:"cash_balance"`
+type accStatus struct {
+	Cash_balance float64   `json:"cash_balance"`
+	Stocks       []holding `json:"stocks"`
 }
 
-type req struct{
-	Sym string `json:"Sym"`
+type req struct {
+	Sym      string `json:"Sym"`
 	Username string `json:"Username"`
 }
 
-type quote_hit struct{
-	Timestamp int `json:"Timestamp"`
-	Price float64 `json:"Price"`
-	Cryptokey string `json:"Cryptokey"`
+type quote_hit struct {
+	Timestamp int     `json:"Timestamp"`
+	Price     float64 `json:"Price"`
+	Cryptokey string  `json:"Cryptokey"`
 }
 
 type quote struct {
@@ -82,7 +85,7 @@ type order struct {
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
-	CashBalance  []c_bal      `json:"cashBalance"`
+	Acc_Status   []accStatus  `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
@@ -133,8 +136,7 @@ func main() {
 	router.GET("/users/:id", getAccount)
 	router.GET("/health", healthcheck)
 
-	
-	router.GET("/users", getAll) 
+	router.GET("/users", getAll)
 	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
 	router.GET("/quotes", getQuotes)
@@ -192,7 +194,7 @@ func getAll(c *gin.Context) {
 
 func exists(ID string) bool {
 	r := readOne("users", bson.D{{"user_id", ID}})
-	n := bson.D{{"none", "none"}} 
+	n := bson.D{{"none", "none"}}
 
 	if !reflect.DeepEqual(r, n) {
 		return true
@@ -269,7 +271,6 @@ func Quote(c *gin.Context) {
 
 	theQuote := fetchQuote(id, stock)
 
-
 	var q quote
 
 	q.Price = theQuote.Price
@@ -277,12 +278,9 @@ func Quote(c *gin.Context) {
 	q.CKey = theQuote.Cryptokey
 
 	c.IndentedJSON(http.StatusOK, q)
-
-	transaction_counter += 1
 }
 
 func fetchQuote(id string, stock string) quote_hit {
-	
 
 	// check if quote for specified stock exists
 	var newQuote quote_hit
@@ -303,7 +301,6 @@ func fetchQuote(id string, stock string) quote_hit {
 	s.Sym = stock
 	s.Username = id
 
-	
 	parsedJson, err := json.Marshal(s)
 	if err != nil {
 		panic(err)
@@ -327,8 +324,6 @@ func fetchQuote(id string, stock string) quote_hit {
 	if err != nil {
 		panic(err)
 	}
-	
-
 
 	// Logging quote server hit
 	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Price: newQuote.Price, StockSymbol: stock, Username: id, QuoteServerTime: newQuote.Timestamp, Cryptokey: newQuote.Cryptokey}
@@ -336,10 +331,6 @@ func fetchQuote(id string, stock string) quote_hit {
 
 	return newQuote
 }
-
-
-
-
 
 func buyStock(c *gin.Context) {
 	var newOrder order
@@ -380,7 +371,6 @@ func buyStock(c *gin.Context) {
 		} else {
 			c.IndentedJSON(http.StatusForbidden, "Not enough balance in your account")
 		}
-
 
 	}
 }
@@ -794,12 +784,6 @@ func setTrigger(c *gin.Context) {
 	errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
 	logEvent(errorLog)
 	transaction_counter += 1
-
-	// Logging error event
-	// errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
-	// logEvent(errorLog)
-	// transaction_counter += 1
-
 }
 
 func dumplog(c *gin.Context) {
@@ -837,7 +821,7 @@ func dumplog(c *gin.Context) {
 // Provides a summary to the client of the given user's transaction history and the current
 // status of their accounts as well as any set buy or sell triggers and their parameters
 func displaySummary(c *gin.Context) {
-	// params: userid
+	// Params: userid
 	id := c.Param("id")
 
 	// Logging displaySummary command
@@ -850,24 +834,16 @@ func displaySummary(c *gin.Context) {
 	logsd = readMany("logs", bson.D{{"Username", id}})
 	logs = mongo_read_logs(logsd)
 
-	var transactions []logEntry
-	for idx := range logs {
-		if logs[idx].LogType == "accountTransaction" {
-			transactions = append(transactions, logs[idx])
-		}
-	}
-
 	// ...and the current status of their accounts...
-	var cashBal []c_bal
-	r := rawreadField("users", bson.D{{"user_id", id}}, bson.D{{"cash_balance", 1}})
+	var acc_status []accStatus
+	r := readMany("users", bson.D{})
 	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
 
 	if reflect.DeepEqual(r, n) {
 		panic("Empty db read response")
 	}
 
-	cashBal = mongo_read_cashbal(r)
-	// TODO: can we read stocks user owns? to include in state of account
+	acc_status = mongo_read_acc_status(r)
 
 	// ...as well as any set buy or sell triggers and their parameters...
 	var limitOrders []LimitOrder
@@ -878,7 +854,7 @@ func displaySummary(c *gin.Context) {
 	}
 
 	// ...is displayed to the user.
-	data := displayCmdData{Transactions: transactions, CashBalance: cashBal, LimitOrders: limitOrders}
+	data := displayCmdData{Transactions: logs, Acc_Status: acc_status, LimitOrders: limitOrders}
 
 	// Send data as JSON response
 	c.IndentedJSON(http.StatusOK, data)
