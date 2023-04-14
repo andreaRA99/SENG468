@@ -74,6 +74,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "DayTrading Inc. CLI"
 	app.Usage = "Lets you execute user commands from a file containing a list of commands as well as execute individual user commands from the command line"
+	app.UsageText = "go run cli.go [global options] command [command options] [arguments...]"
 
 	app.Commands = []cli.Command{
 		{
@@ -85,11 +86,11 @@ func main() {
 				return nil
 			},
 			Usage:       `Reads file from specified path`,
-			Description: `Read and parse user commands' file`,
+			Description: `Read and parse file containing user commands`,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "filelocation, fl",
-					Usage: "full path of file containing commands",
+					Usage: "full path to file containing commands",
 				},
 			},
 		},
