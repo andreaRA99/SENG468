@@ -836,7 +836,7 @@ func displaySummary(c *gin.Context) {
 
 	// ...and the current status of their accounts...
 	var acc_status []accStatus
-	r := readMany("users", bson.D{})
+	r := readMany("users", bson.D{{"user_id", id}})
 	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
 
 	if reflect.DeepEqual(r, n) {
