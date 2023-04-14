@@ -108,12 +108,18 @@ func connectDb(databaseUri string) (*mongo.Client, error) {
 
 // main
 func main() {
+	pollingService, found := os.LookupEnv("POLLING_SERVICE")
+	if !found {
+		log.Fatalln("No POLLING_SERVICE")
+	}
+
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
 	var db *mongo.Database
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("db", db)
+		ctx.Set("pollingService", pollingService)
 		ctx.Next()
 	})
 
@@ -269,7 +275,7 @@ func Quote(c *gin.Context) {
 	quoteCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "QUOTE", Username: id, StockSymbol: stock}
 	logEvent(quoteCmdLog)
 
-	theQuote := fetchQuote(id, stock)
+	theQuote := fetchQuote(c, id, stock)
 
 	var q quote
 
@@ -280,7 +286,8 @@ func Quote(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, q)
 }
 
-func fetchQuote(id string, stock string) quote_hit {
+func fetchQuote(c *gin.Context, id string, stock string) quote_hit {
+	pollingService := c.MustGet("pollingService").(string)
 
 	// check if quote for specified stock exists
 	var newQuote quote_hit
@@ -305,7 +312,7 @@ func fetchQuote(id string, stock string) quote_hit {
 	if err != nil {
 		panic(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/quote", bytes.NewBuffer(parsedJson))
+	req, err := http.NewRequest(http.MethodPost, pollingService + "/quote", bytes.NewBuffer(parsedJson))
 	if err != nil {
 		panic(err)
 	}
@@ -350,7 +357,7 @@ func buyStock(c *gin.Context) {
 
 	// This would ideally go after checking if account has enough balance
 	// Fetching most current price for that stock
-	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
+	newOrder.Price = fetchQuote(c, newOrder.ID, newOrder.Stock).Price
 
 	newOrder.Qty = int(math.Floor(newOrder.Amount))
 
@@ -489,7 +496,7 @@ func sellStock(c *gin.Context) {
 		panic("ERROR")
 	}
 
-	newOrder.Price = fetchQuote(newOrder.ID, newOrder.Stock).Price
+	newOrder.Price = fetchQuote(c, newOrder.ID, newOrder.Stock).Price
 	newOrder.Qty = int(math.Floor(newOrder.Amount / newOrder.Price))
 	newOrder.Amount = newOrder.Price * float64(newOrder.Qty) // How much user will be charged based on  int Qty of stocks at surr price
 
@@ -731,6 +738,7 @@ func setTrigger(c *gin.Context) {
 	//(a) a reserve account is created for the BUY transaction to hold the specified amount in reserve for when the transaction is triggered
 	// (b)the user's cash account is decremented by the specified amount
 	// Resolved:   (c) when the trigger point is reached the user's stock account is updated to reflect the BUY transaction.
+	pollingService := c.MustGet("pollingService").(string)
 
 	var limitorder LimitOrder
 	limitorder.Type = c.Param("type")
@@ -763,7 +771,7 @@ func setTrigger(c *gin.Context) {
 					panic(err)
 				}
 
-				req, err := http.NewRequest(http.MethodPost, "http://polling_microservice:8081/new_limit", bytes.NewBuffer(parsedJson))
+				req, err := http.NewRequest(http.MethodPost, pollingService + "/new_limit", bytes.NewBuffer(parsedJson))
 				if err != nil {
 					panic(err)
 				}
