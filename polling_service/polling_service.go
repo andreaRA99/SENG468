@@ -7,10 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"strings"
-	"strconv"
 	"log"
+	"net"
+	"strconv"
+	"strings"
 
 	"net/http"
 	"time"
@@ -27,15 +27,15 @@ type LimitOrder struct {
 	Qty    float64
 }
 
-type req struct{
-	Sym string `json:"Sym"`
+type req struct {
+	Sym      string `json:"Sym"`
 	Username string `json:"Username"`
 }
 
-type quote_hit struct{
-	Timestamp int `json:"Timestamp"`
-	Price float64 `json:"Price"`
-	Cryptokey string `json:"Cryptokey"`
+type quote_hit struct {
+	Timestamp int     `json:"Timestamp"`
+	Price     float64 `json:"Price"`
+	Cryptokey string  `json:"Cryptokey"`
 }
 
 var reqUrlPrefix = "http://host.docker.internal:8080"
@@ -110,8 +110,8 @@ func getQuoteUvic(sym string, username string) (float64, int, string) {
 	return quotePrice, timestamp, cryptKey
 }
 
-func quote_price(s string, u string)( quote_hit){
-	
+func quote_price(s string, u string) quote_hit {
+
 	var r req
 	r.Username = u
 	r.Sym = s
@@ -119,7 +119,7 @@ func quote_price(s string, u string)( quote_hit){
 	req, err := http.NewRequest(http.MethodPost, "http://quote_server:8083/", bytes.NewBuffer(parsedJson))
 	res, err := http.DefaultClient.Do(req)
 	reads, err := ioutil.ReadAll(res.Body)
-	fmt.Printf("%s \n" , reads)
+	fmt.Printf("%s \n", reads)
 	if err != nil {
 		fmt.Println("ERROR")
 		fmt.Println(err)
@@ -131,7 +131,7 @@ func quote_price(s string, u string)( quote_hit){
 	return m
 }
 
-func get_price(c *gin.Context){
+func get_price(c *gin.Context) {
 
 	var quote_req req
 	if err := c.BindJSON(&quote_req); err != nil {
@@ -143,19 +143,14 @@ func get_price(c *gin.Context){
 	fmt.Printf("SYM: %s, USER: %s\n", quote_req.Sym, quote_req.Username)
 	fmt.Printf("KEY: %s, VAL: %f\n", quote_req.Sym, q.Price)
 	cache.SetKeyWithExpirationInSecs(quote_req.Sym, q.Price, 0)
-   c.IndentedJSON(http.StatusOK, q)
+	c.IndentedJSON(http.StatusOK, q)
 }
-
 
 func do_limit_order() {
 	j := 0
 	for len(active_orders) > 0 {
 		// do: update cache
-	   val := quote_price(active_orders[j].Stock, active_orders[j].User)
-	
-	   
-
-
+		val := quote_price(active_orders[j].Stock, active_orders[j].User)
 
 		if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
 			cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)

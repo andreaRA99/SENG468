@@ -1,32 +1,28 @@
 package main
 
-
-
-
 import (
-
-	"github.com/gin-gonic/gin"
-	"flag"
-	"net/http"
-	"math/rand"
-	"time"
 	"crypto/md5"
-	"io"
 	"encoding/binary"
+	"flag"
+	"github.com/gin-gonic/gin"
+	"io"
+	"math/rand"
+	"net/http"
+	"time"
 )
-type req struct{
-	sym string 
-	username string 
+
+type req struct {
+	sym      string
+	username string
 }
 
-type quote_hit struct{
-	Timestamp int `json:"Timestamp"`
-	Price float64 `json:"Price"`
-	Cryptokey string `json:"Cryptokey"`
+type quote_hit struct {
+	Timestamp int     `json:"Timestamp"`
+	Price     float64 `json:"Price"`
+	Cryptokey string  `json:"Cryptokey"`
 }
 
-
-func main(){
+func main() {
 
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
@@ -35,9 +31,10 @@ func main(){
 	bind := flag.String("bind", "localhost:8083", "host:port to listen on")
 	flag.Parse()
 
-
 	err := router.Run(*bind)
-	if err != nil {panic(err)} 
+	if err != nil {
+		panic(err)
+	}
 }
 
 func RandStringBytesRmndr(n int, f string) string {
@@ -49,7 +46,7 @@ func RandStringBytesRmndr(n int, f string) string {
 
 	b := make([]byte, n)
 	for i := range b {
-		 b[i] = letterBytes[rand.Int63() % int64(len(letterBytes))]
+		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
 	}
 	return string(b)
 }
@@ -57,19 +54,19 @@ func RandStringBytesRmndr(n int, f string) string {
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func mockQuoteServerHit(sym string, username string) (float64, int, string) {
-	t:= int(time.Now().Unix())
+	t := int(time.Now().Unix())
 	rand.Seed(int64(t))
 	v := rand.Float64() * 300
 	c := RandStringBytesRmndr(10, username)
-	
+
 	return v, t, c
 }
 
-func quote(c *gin.Context){
+func quote(c *gin.Context) {
 	var request req
 	if err := c.BindJSON(&request); err != nil {
 		c.IndentedJSON(http.StatusOK, err)
-		return 
+		return
 	}
 	price, time, crypt := mockQuoteServerHit(request.sym, request.username)
 

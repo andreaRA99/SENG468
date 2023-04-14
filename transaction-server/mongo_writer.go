@@ -37,9 +37,8 @@ func updateOne(collection_ string, who bson.D, with bson.D, _type string) string
 		return "Failed to Update Value"
 	}
 	if result.MatchedCount != 1 {
-		return("no_match")
+		return ("no_match")
 	}
-
 
 	return "ok"
 
