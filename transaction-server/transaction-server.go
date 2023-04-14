@@ -5,16 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -308,57 +304,6 @@ func fetchQuote(id string, stock string) quote {
 
 func mockQuoteServerHit(sym string, username string) (float64, int, string) {
 	return rand.Float64() * 300, int(time.Now().Unix()), " thisISaCRYPTOkey "
-}
-
-func getQuoteTEMP(sym string, username string) (float64, int, string) {
-	//TEMPORARY NAME BECAUSE IT INTERFERS WITH GET QUOTE HTTP METHOD
-	//make connection to server
-	strEcho := sym + " " + username + "\n"
-	servAddr := "quoteserve.seng.uvic.ca:4444"
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
-	if err != nil {
-		fmt.Println("\nResolveTCPAddr error: ", err)
-		panic(err)
-	}
-
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		fmt.Println("\nDialTCP error: ", err)
-		panic(err)
-	}
-
-	//write to server SYM being requested and user
-	_, err = conn.Write([]byte(strEcho))
-	if err != nil {
-		fmt.Println("\nWrite error: ", err)
-		panic(err)
-	}
-
-	//reading from server
-	_reply := make([]byte, 1024)
-
-	_, err = conn.Read(_reply)
-	if err != nil {
-		fmt.Println("\nRead error: ", err)
-		panic(err)
-	}
-
-	//parsing reply from server
-	reply := strings.Split(strings.ReplaceAll(string(_reply), "\n", ""), ",")
-	quotePrice, err := strconv.ParseFloat(reply[0], 64)
-	if err != nil {
-		panic(err)
-	}
-	timestamp, err := strconv.Atoi(reply[3])
-	if err != nil {
-		log.Fatal(err)
-	}
-	cryptKey := reply[4]
-
-	conn.Close()
-
-	return quotePrice, timestamp, cryptKey
 }
 
 func buyStock(c *gin.Context) {
