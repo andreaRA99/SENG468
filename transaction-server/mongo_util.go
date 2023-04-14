@@ -4,28 +4,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func mongo_read_acc_status(v []bson.D) []accStatus {
-	var temp []accStatus
-	var temp_stocks []holding
+func mongo_read_acc_status(userDocument bson.D) accStatus {
+	var temp accStatus
 
-	for _, s := range v {
-		var e accStatus
-		for _, kv_pair := range s {
-			tempk := kv_pair.Key
-			tempv := kv_pair.Value
-			switch d := tempv.(type) {
-			case float64:
-				e.Cash_balance = d
-			case int32:
-				var temp_holding holding
-				temp_holding.Symbol = tempk
-				temp_holding.Quantity = int(d)
-				temp_stocks = append(temp_stocks, temp_holding)
-			}
+	for _, kv := range userDocument {
+		if kv.Key == "cash_balance" {
+			temp.Cash_balance = kv.Value.(float64)
+		} else if quantity, is_quantity := kv.Value.(int32); is_quantity {
+			temp.Stocks = append(temp.Stocks, holding{
+				Symbol: kv.Key,
+				Quantity: int(quantity),
+			})
 		}
-		e.Stocks = temp_stocks
-		temp = append(temp, e)
 	}
+
 	return temp
 }
 

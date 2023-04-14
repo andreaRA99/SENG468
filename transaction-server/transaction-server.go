@@ -82,7 +82,7 @@ type order struct {
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
-	Acc_Status   []accStatus  `json:"accStatus"`
+	Acc_Status   accStatus    `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
@@ -821,6 +821,8 @@ func dumplog(c *gin.Context) {
 // Provides a summary to the client of the given user's transaction history and the current
 // status of their accounts as well as any set buy or sell triggers and their parameters
 func displaySummary(c *gin.Context) {
+	db := c.MustGet("db").(*mongo.Database)
+
 	// Params: userid
 	id := c.Param("id")
 
@@ -835,15 +837,13 @@ func displaySummary(c *gin.Context) {
 	logs = mongo_read_logs(logsd)
 
 	// ...and the current status of their accounts...
-	var acc_status []accStatus
-	r := readMany("users", bson.D{{"user_id", id}})
-	n := bson.D{{"none", "none"}} // to compare and make sure not empty response
-
-	if reflect.DeepEqual(r, n) {
-		panic("Empty db read response")
+	var userDocument bson.D
+	err := db.Collection("users").FindOne(context.TODO(), bson.D{{"user_id", id}}).Decode(&userDocument)
+	if err != nil {
+		panic(err)
 	}
 
-	acc_status = mongo_read_acc_status(r)
+	acc_status := mongo_read_acc_status(userDocument)
 
 	// ...as well as any set buy or sell triggers and their parameters...
 	var limitOrders []LimitOrder

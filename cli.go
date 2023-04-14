@@ -37,7 +37,7 @@ type logEntry struct {
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
-	Acc_Status   []accStatus  `json:"accStatus"`
+	Acc_Status   accStatus    `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
 }
 
@@ -317,12 +317,12 @@ func displaySummary(resBody []byte) {
 	}
 	fmt.Println("Current Status of Accounts:")
 	fmt.Println()
-	fmt.Println("\tBalance: ", resp.Acc_Status[0].Cash_balance)
+	fmt.Println("\tBalance: ", resp.Acc_Status.Cash_balance)
 	fmt.Println()
 	fmt.Printf("\tStocks Owned:\n")
-	for idx := range resp.Acc_Status[0].Stocks {
-		fmt.Printf("\n\t\tSymbol: %s\n", resp.Acc_Status[0].Stocks[idx].Symbol)
-		fmt.Printf("\t\tQuantity: %d\n", resp.Acc_Status[0].Stocks[idx].Quantity)
+	for idx := range resp.Acc_Status.Stocks {
+		fmt.Printf("\n\t\tSymbol: %s\n", resp.Acc_Status.Stocks[idx].Symbol)
+		fmt.Printf("\t\tQuantity: %d\n", resp.Acc_Status.Stocks[idx].Quantity)
 	}
 	fmt.Println()
 	fmt.Println("\tTriggers:")
