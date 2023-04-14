@@ -1,81 +1,108 @@
 package main
 
 import (
-	"crypto/md5"
+	"bufio"
+	"bytes"
+	"crypto/aes"
+	cryptoRand "crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"flag"
-	"github.com/gin-gonic/gin"
-	"io"
-	"math/rand"
-	"net/http"
+	"fmt"
+	"log"
+	mathRand "math/rand"
+	"net"
 	"time"
 )
 
-type req struct {
-	sym      string
-	username string
-}
-
-type quote_hit struct {
-	Timestamp int     `json:"Timestamp"`
-	Price     float64 `json:"Price"`
-	Cryptokey string  `json:"Cryptokey"`
-}
-
 func main() {
-
-	router := gin.Default() // initializing Gin router
-	router.SetTrustedProxies(nil)
-
-	router.POST("/", quote)
-	bind := flag.String("bind", "localhost:8083", "host:port to listen on")
+	bind := flag.String("bind", "localhost:4444", "host:port to listen on")
 	flag.Parse()
 
-	err := router.Run(*bind)
+	ln, err := net.Listen("tcp", *bind)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
+	}
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		log.Println("Client connected")
+		go interact(conn)
 	}
 }
 
-func RandStringBytesRmndr(n int, f string) string {
-	h := md5.New()
-	io.WriteString(h, f)
-	var seed uint64 = binary.BigEndian.Uint64(h.Sum(nil))
+func interact(conn net.Conn) {
+	defer conn.Close()
 
-	rand.Seed(int64(seed))
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
-	}
-	return string(b)
-}
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-func mockQuoteServerHit(sym string, username string) (float64, int, string) {
-	t := int(time.Now().Unix())
-	rand.Seed(int64(t))
-	v := rand.Float64() * 300
-	c := RandStringBytesRmndr(10, username)
-
-	return v, t, c
-}
-
-func quote(c *gin.Context) {
-	var request req
-	if err := c.BindJSON(&request); err != nil {
-		c.IndentedJSON(http.StatusOK, err)
+	rngSeed := make([]byte, 16)
+	if _, err := cryptoRand.Read(rngSeed); err != nil {
+		log.Printf("Error generating random seed: %s\n", err)
 		return
 	}
-	price, time, crypt := mockQuoteServerHit(request.sym, request.username)
 
-	var send quote_hit
+	rng, err := aes.NewCipher(rngSeed)
+	if err != nil {
+		// this should never happen
+		panic(err)
+	}
 
-	send.Price = price
-	send.Timestamp = time
-	send.Cryptokey = crypt
+	counter := uint32(0)
+	counterBuf := make([]byte, 16)
 
-	c.IndentedJSON(http.StatusOK, send)
+	weakRngSeed := make([]byte, 16)
 
+	rng.Encrypt(weakRngSeed, counterBuf)
+	counter += 1
+	binary.LittleEndian.PutUint32(counterBuf[:4], counter)
+
+	weakRng := mathRand.New(mathRand.NewSource(int64(binary.LittleEndian.Uint64(weakRngSeed[:8]))))
+
+	scanner := bufio.NewScanner(conn)
+	responseKeyBuf := make([]byte, 32)
+
+	for scanner.Scan() {
+		if counter >= 0xffffff00 {
+			log.Println("Counter overflow")
+			return
+		}
+
+		line := scanner.Bytes()
+		words := bytes.SplitN(line, []byte(" "), 2)
+
+		if len(words) != 2 {
+			log.Printf("Error parsing client request: %v\n", words)
+			return
+		}
+
+		sym := words[0]
+		username := words[1]
+
+		priceInCents := weakRng.Intn(30000 + 1)
+
+		rng.Encrypt(responseKeyBuf[:16], counterBuf)
+		counter += 1
+		binary.LittleEndian.PutUint32(counterBuf[:4], counter)
+
+		rng.Encrypt(responseKeyBuf[16:], counterBuf)
+		counter += 1
+		binary.LittleEndian.PutUint32(counterBuf[:4], counter)
+
+		responseKey := base64.RawURLEncoding.EncodeToString(responseKeyBuf[:20])
+		timestamp := time.Now().UnixMilli()
+
+		response := fmt.Sprintf("%d.%02d,%s,%s,%d,%s\n", priceInCents/100, priceInCents%100, sym, username, timestamp, responseKey)
+
+		conn.Write([]byte(response))
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Error reading line from client: %s\n", err)
+		return
+	}
+
+	log.Println("Client disconnected")
 }
