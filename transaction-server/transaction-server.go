@@ -748,15 +748,15 @@ func setTrigger(c *gin.Context) {
 		cmd = "SET_SELL_TRIGGER"
 	}
 
-	// logging user command
-	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
-	logEvent(cmdLog)
-
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
 		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
+
+	// logging user command
+	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
+	logEvent(cmdLog)
 
 	j := 0
 	for _, o := range uncommited_limit_orders {
