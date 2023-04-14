@@ -28,6 +28,7 @@ services:
       - quote_server
     environment:
       QUOTE_SERVER: quote_server:4444
+      TRANSACTION_SERVICE: http://transaction-server:8080
 
   transaction-server:
     build:

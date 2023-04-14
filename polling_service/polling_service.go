@@ -40,8 +40,6 @@ type quote_hit struct {
 	Cryptokey string  `json:"Cryptokey"`
 }
 
-var reqUrlPrefix = "http://host.docker.internal:8080"
-
 var active_orders []LimitOrder
 
 func main() {
@@ -54,11 +52,17 @@ func main() {
 		log.Fatalln("No QUOTE_SERVER")
 	}
 
+	transactionService, found := os.LookupEnv("TRANSACTION_SERVICE")
+	if !found {
+		log.Fatalln("No TRANSACTION_SERVICE")
+	}
+
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
 	router.Use(func(ctx *gin.Context) {
 		ctx.Set("quoteServer", quoteServer)
+		ctx.Set("transactionService", transactionService)
 		ctx.Next()
 	})
 
@@ -143,7 +147,7 @@ func get_price(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, q)
 }
 
-func do_limit_order(quoteServer string) {
+func do_limit_order(quoteServer string, transactionService string) {
 	j := 0
 	for len(active_orders) > 0 {
 		// do: update cache
@@ -154,9 +158,9 @@ func do_limit_order(quoteServer string) {
 				//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
 				active_orders[j].Qty = active_orders[j].Amount
 				parsedJson, _ := json.Marshal(active_orders[j])
-				req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell", bytes.NewBuffer(parsedJson))
+				req, err := http.NewRequest(http.MethodPost, transactionService+"/users/sell", bytes.NewBuffer(parsedJson))
 				_, err = http.DefaultClient.Do(req)
-				req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/sell/commit", bytes.NewBuffer(parsedJson))
+				req, err = http.NewRequest(http.MethodPost, transactionService+"/users/sell/commit", bytes.NewBuffer(parsedJson))
 				_, err = http.DefaultClient.Do(req)
 				//fmt.Println(res)
 				if err != nil {
@@ -171,7 +175,7 @@ func do_limit_order(quoteServer string) {
 				active_orders[j].Qty = active_orders[j].Amount
 
 				parsedJson, _ := json.Marshal(active_orders[j])
-				req, err := http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy", bytes.NewBuffer(parsedJson))
+				req, err := http.NewRequest(http.MethodPost, transactionService+"/users/buy", bytes.NewBuffer(parsedJson))
 				res, err := http.DefaultClient.Do(req)
 
 				resBody, err := ioutil.ReadAll(res.Body)
@@ -181,7 +185,7 @@ func do_limit_order(quoteServer string) {
 					fmt.Println(err)
 				}
 
-				req, err = http.NewRequest(http.MethodPost, reqUrlPrefix+"/users/buy/commit", bytes.NewBuffer(parsedJson))
+				req, err = http.NewRequest(http.MethodPost, transactionService+"/users/buy/commit", bytes.NewBuffer(parsedJson))
 				res, err = http.DefaultClient.Do(req)
 				resBody, err = ioutil.ReadAll(res.Body)
 				if err != nil {
@@ -205,6 +209,7 @@ func do_limit_order(quoteServer string) {
 
 func new_limit(c *gin.Context) {
 	quoteServer := c.MustGet("quoteServer").(string)
+	transactionService := c.MustGet("transactionService").(string)
 
 	var limitorder LimitOrder
 	if err := c.BindJSON(&limitorder); err != nil {
@@ -214,7 +219,7 @@ func new_limit(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "ok")
 	active_orders = append(active_orders, limitorder)
 	if len(active_orders) == 1 {
-		go do_limit_order(quoteServer)
+		go do_limit_order(quoteServer, transactionService)
 	} else {
 		return
 	}
