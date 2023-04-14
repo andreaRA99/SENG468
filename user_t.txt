@@ -1,3 +1,0 @@
-[1] ADD,oY01WVirLr,63511.53 
-[2] BUY,oY01WVirLr,b,500 
-[3] COMMIT_BUY,oY01WVirLr 

@@ -40,13 +40,17 @@ type quote_hit struct {
 	Cryptokey string  `json:"Cryptokey"`
 }
 
+type logQSHit struct {
+	Id        string  `json:"id"`
+	Sym       string  `json:"sym"`
+	Timestamp int     `json:"timestamp"`
+	Price     float64 `json:"price"`
+	Cryptokey string  `json:"cryptokey"`
+}
+
 var active_orders []LimitOrder
 
 func main() {
-
-	// example
-	//cache.SetKeyWithExpirationInSecs("foo", 99.8, 0)
-
 	quoteServer, found := os.LookupEnv("QUOTE_SERVER")
 	if !found {
 		log.Fatalln("No QUOTE_SERVER")
@@ -56,7 +60,6 @@ func main() {
 	if !found {
 		log.Fatalln("No TRANSACTION_SERVICE")
 	}
-
 	router := gin.Default() // initializing Gin router
 	router.SetTrustedProxies(nil)
 
@@ -76,6 +79,7 @@ func main() {
 	}
 
 }
+
 func quote_price(servAddr string, sym string, username string) (quote_hit, error) {
 	strEcho := sym + " " + username + "\n"
 
@@ -127,7 +131,6 @@ func quote_price(servAddr string, sym string, username string) (quote_hit, error
 }
 
 func get_price(c *gin.Context) {
-
 	var quote_req req
 	if err := c.BindJSON(&quote_req); err != nil {
 		c.IndentedJSON(http.StatusOK, err)
@@ -140,10 +143,8 @@ func get_price(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("BEFORE CACHE: ")
-	fmt.Printf("SYM: %s, USER: %s\n", quote_req.Sym, quote_req.Username)
-	fmt.Printf("KEY: %s, VAL: %f\n", quote_req.Sym, q.Price)
 	cache.SetKeyWithExpirationInSecs(quote_req.Sym, q.Price, 0)
+
 	c.IndentedJSON(http.StatusOK, q)
 }
 
@@ -152,25 +153,36 @@ func do_limit_order(quoteServer string, transactionService string) {
 	for len(active_orders) > 0 {
 		// do: update cache
 		val, err := quote_price(quoteServer, active_orders[j].Stock, active_orders[j].User)
+
 		if err != nil {
+			// Logging quote server hit
+			logQSHit_ := logQSHit{Id: active_orders[j].User, Sym: active_orders[j].Stock, Timestamp: val.Timestamp, Price: val.Price, Cryptokey: val.Cryptokey}
+			parsedJson, _ := json.Marshal(logQSHit_)
+			_, err = http.NewRequest(http.MethodPost, transactionService+"/log_qs_hit", bytes.NewBuffer(parsedJson))
+			if err != nil {
+				fmt.Println("ERROR")
+				log.Fatal(err)
+			}
+
 			if val.Price > active_orders[j].Price && active_orders[j].Type == "sell" {
 				cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
-				//"ID":active_orders[j].User, "Stock": active_orders[j].Stock, "Amount": active_orders[j].Amount, "Price": val
 				active_orders[j].Qty = active_orders[j].Amount
+
 				parsedJson, _ := json.Marshal(active_orders[j])
 				req, err := http.NewRequest(http.MethodPost, transactionService+"/users/sell", bytes.NewBuffer(parsedJson))
 				_, err = http.DefaultClient.Do(req)
+
 				req, err = http.NewRequest(http.MethodPost, transactionService+"/users/sell/commit", bytes.NewBuffer(parsedJson))
 				_, err = http.DefaultClient.Do(req)
-				//fmt.Println(res)
+
 				if err != nil {
 					fmt.Println("ERROR")
 					fmt.Println(err)
 				}
+
 				active_orders = append(active_orders[:j], active_orders[j+1:]...)
 
 			} else if val.Price < active_orders[j].Price && active_orders[j].Type == "buy" {
-				//writeQuoteToCache(active_orders[j].Stock, active_orders[j].Price)
 				cache.SetKeyWithExpirationInSecs(active_orders[j].Stock, val.Price, 0)
 				active_orders[j].Qty = active_orders[j].Amount
 
@@ -178,8 +190,7 @@ func do_limit_order(quoteServer string, transactionService string) {
 				req, err := http.NewRequest(http.MethodPost, transactionService+"/users/buy", bytes.NewBuffer(parsedJson))
 				res, err := http.DefaultClient.Do(req)
 
-				resBody, err := ioutil.ReadAll(res.Body)
-				fmt.Printf("RESBODY: %s\n", resBody)
+				_, err = ioutil.ReadAll(res.Body)
 				if err != nil {
 					fmt.Println("ERROR")
 					fmt.Println(err)
@@ -187,7 +198,7 @@ func do_limit_order(quoteServer string, transactionService string) {
 
 				req, err = http.NewRequest(http.MethodPost, transactionService+"/users/buy/commit", bytes.NewBuffer(parsedJson))
 				res, err = http.DefaultClient.Do(req)
-				resBody, err = ioutil.ReadAll(res.Body)
+				_, err = ioutil.ReadAll(res.Body)
 				if err != nil {
 					fmt.Println("ERROR")
 					fmt.Println(err)
@@ -216,7 +227,9 @@ func new_limit(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, err)
 		return
 	}
+
 	c.IndentedJSON(http.StatusOK, "ok")
+
 	active_orders = append(active_orders, limitorder)
 	if len(active_orders) == 1 {
 		go do_limit_order(quoteServer, transactionService)

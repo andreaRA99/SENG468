@@ -54,12 +54,11 @@ type quote_hit struct {
 }
 
 type quote struct {
-	//ID    string
 	Stock string
 	Price float64
 	CKey  string // Crytohraphic key
-	// add timeout property
 }
+
 type quoteInCache struct {
 	Price string
 }
@@ -79,14 +78,20 @@ type order struct {
 	Amount float64 `json:"amount"`
 	Price  float64
 	Qty    int
-	//Buy_id string  `json:"buy_id"`
-	// figure out timeout feature
 }
 
 type displayCmdData struct {
 	Transactions []logEntry   `json:"transactions"`
 	Acc_Status   []accStatus  `json:"accStatus"`
 	LimitOrders  []LimitOrder `json:"limitOrders"`
+}
+
+type logQSHit struct {
+	Id        string  `json:"id"`
+	Sym       string  `json:"sym"`
+	Timestamp int     `json:"timestamp"`
+	Price     float64 `json:"price"`
+	Cryptokey string  `json:"cryptokey"`
 }
 
 var quotes = []quote{}
@@ -141,9 +146,9 @@ func main() {
 	// Util routes
 	router.GET("/users/:id", getAccount)
 	router.GET("/health", healthcheck)
+	router.POST("/log_qs_hit", log_qs_hit)
 
 	router.GET("/users", getAll)
-	router.GET("/log", logAll)
 	router.GET("/orders", getOrders)
 	router.GET("/quotes", getQuotes)
 
@@ -161,11 +166,6 @@ func main() {
 	}
 
 	db = mongoClient.Database("daytrading")
-
-	//connectToRedisCache()
-	//SetKeyWithExpirationInSecs("srock", "500", 0)
-	//GetKeyWithStringVal("srock")
-	//fmt.Println(addQuoteToCaching("stx", "tds")) //addds quote to chance if not in already  and returns price
 
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -187,9 +187,15 @@ func getOrders(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, buys)
 }
 
-func logAll(c *gin.Context) {
-	r := readMany("logs", bson.D{})
-	c.IndentedJSON(http.StatusOK, r)
+func log_qs_hit(c *gin.Context) {
+	var qs_hit logQSHit
+	if err := c.BindJSON(&qs_hit); err != nil {
+		return
+	}
+
+	// Logging quote server hit
+	QSHitLog := logEntry{LogType: QUOTESERVER, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Price: qs_hit.Price, StockSymbol: qs_hit.Sym, Username: qs_hit.Id, QuoteServerTime: qs_hit.Timestamp, Cryptokey: qs_hit.Cryptokey}
+	logEvent(QSHitLog)
 }
 
 func getAll(c *gin.Context) {
@@ -312,15 +318,18 @@ func fetchQuote(c *gin.Context, id string, stock string) quote_hit {
 	if err != nil {
 		panic(err)
 	}
+
 	req, err := http.NewRequest(http.MethodPost, pollingService + "/quote", bytes.NewBuffer(parsedJson))
 	if err != nil {
 		panic(err)
 	}
+
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Println("ERROR")
 		fmt.Println(err)
 	}
+
 	reads, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("ERROR")
@@ -367,10 +376,8 @@ func buyStock(c *gin.Context) {
 		return
 	}
 
-	// Should refactor, very redundant code
 	switch v := r[0][1].Value.(type) {
 	case float64:
-		//{
 		if v > newOrder.Amount {
 			buys = append(buys, newOrder)
 			c.IndentedJSON(http.StatusOK, newOrder)
@@ -427,7 +434,7 @@ func commitBuy(c *gin.Context) {
 		j++
 	}
 
-	// Command did not execute but must be logged
+	// Logging error
 	if !match {
 		// Logging user command
 		commitBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_BUY", Username: commitOrder.ID}
@@ -456,13 +463,11 @@ func cancelBuy(c *gin.Context) {
 			//possible memory leak
 			buys = append(buys[:j], buys[j+1:]...)
 			break
-			c.IndentedJSON(http.StatusOK, "ok")
-
 		}
 		j++
 	}
 
-	// Command did not execute but must be logged
+	// Logging error
 	if !match {
 		// Logging user command
 		cancelBuyCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_BUY", Username: id}
@@ -530,19 +535,7 @@ func sellStock(c *gin.Context) {
 
 		return
 	}
-
-	c.IndentedJSON(http.StatusForbidden, "Finished")
-
-	// Check they have enough
-	return
 }
-
-// User has enough balance, proceed creating order
-//buy_id := len(orders) + 1
-//newOrder.Buy_id = buy_id
-//orders = append(orders, newOrder)
-//return
-//c.IndentedJSON(http.StatusOK, newOrder)
 
 func commitSell(c *gin.Context) {
 	var commitOrder order
@@ -586,7 +579,7 @@ func commitSell(c *gin.Context) {
 		j++
 	}
 
-	// Command did not execute but must be logged
+	// Logging error
 	if !match {
 		// Logging user command
 		commitSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "COMMIT_SELL", Username: commitOrder.ID}
@@ -623,7 +616,7 @@ func cancelSell(c *gin.Context) {
 		j++
 	}
 
-	// Command did not execute but must be logged
+	// Logging error
 	if !match {
 		// Logging user command
 		cancelSellCmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: "CANCEL_SELL", Username: id}
@@ -683,7 +676,6 @@ func setAmount(c *gin.Context) {
 
 	uncommited_limit_orders = append(uncommited_limit_orders, limitorder)
 
-	// TODO: not sure what constitutes this command not taking place
 	if !match {
 		// Logging error event
 		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
@@ -724,7 +716,6 @@ func cancelSet(c *gin.Context) {
 		j++
 	}
 
-	// TODO: not sure what constitutes this command not taking place
 	if !match {
 		// Logging error event
 		errorLog := logEntry{LogType: ERR_EVENT, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User}
@@ -763,8 +754,6 @@ func setTrigger(c *gin.Context) {
 	for _, o := range uncommited_limit_orders {
 		if o.User == limitorder.User {
 			if o.Type == limitorder.Type {
-				transaction_counter += 1
-
 				o.Price = limitorder.Price
 				parsedJson, err := json.Marshal(o)
 				if err != nil {
@@ -775,12 +764,15 @@ func setTrigger(c *gin.Context) {
 				if err != nil {
 					panic(err)
 				}
+
 				_, err = http.DefaultClient.Do(req)
 				if err != nil {
 					panic(err)
 				}
 
 				uncommited_limit_orders = append(uncommited_limit_orders[:j], uncommited_limit_orders[j+1:]...)
+
+				transaction_counter += 1
 				return
 			}
 
