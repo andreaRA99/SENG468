@@ -155,6 +155,8 @@ func do_limit_order(quoteServer string, transactionService string) {
 		val, err := quote_price(quoteServer, active_orders[j].Stock, active_orders[j].User)
 
 		if err != nil {
+			log.Printf("fetching quote price: %s\n", err)
+		} else {
 			// Logging quote server hit
 			logQSHit_ := logQSHit{Id: active_orders[j].User, Sym: active_orders[j].Stock, Timestamp: val.Timestamp, Price: val.Price, Cryptokey: val.Cryptokey}
 			parsedJson, _ := json.Marshal(logQSHit_)
