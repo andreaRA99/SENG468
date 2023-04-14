@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Trade{% endblock %}
+
+{% block body %}
+	<h1>Trade {{ stock }}</h1>
+
+	<dl>
+		<dt>Unit price</dt>
+		<dd>${{ "{:,.2f}".format(price) }}</dd>
+		<dt>Owned shares</dt>
+		<dd>{{ owned }}</dd>
+	</dl>
+
+	<form class="form" method="POST">
+		{% if automatic %}
+			<label class="field">
+				<span class="field-label">Price $</span>
+				<input class="text-input" type="number" name="price" min="0.00" step="0.01" required>
+			</label>
+		{% else %}
+			<input type="hidden" name="price" value="{{ price }}">
+		{% endif %}
+
+		<label class="field">
+			<span class="field-label">Quantity</span>
+			<input class="text-input" type="number" name="amount" min="1" step="1" required>
+		</label>
+
+		<div class="form-actions">
+			{% if automatic %}
+				<button name="do" value="set-buy" class="button">Set buy point</button>
+				<button name="do" value="set-sell" class="button">Set sell point</button>
+			{% else %}
+				<button name="do" value="buy" class="button">Buy</button>
+				<button name="do" value="sell" class="button">Sell</button>
+			{% endif %}
+		</div>
+	</form>
+
+	{#<form class="form" method="POST">
+	</form>#}
+{% endblock %}

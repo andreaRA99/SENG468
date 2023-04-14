@@ -1,0 +1,9 @@
+*
+
+!poetry-requirements.txt
+
+!static/
+!templates/
+!web_ui/
+!poetry.lock
+!pyproject.toml

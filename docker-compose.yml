@@ -18,6 +18,7 @@ services:
     build:
       context: ./
       dockerfile: polling_service/Dockerfile
+    pull_policy: never
     ports:
       - target: 8081
         published: 8081
@@ -34,6 +35,7 @@ services:
     build:
       context: ./
       dockerfile: transaction-server/Dockerfile
+    pull_policy: never
     ports:
       - target: 8080
         published: 8080
@@ -51,12 +53,44 @@ services:
 
   quote_server:
     build: ./quote_server
+    pull_policy: never
     ports:
       - target: 4444
         published: 4444
         protocol: tcp
     command: --bind :4444
 
+  web-ui-1: &web-ui
+    build: ./web-ui/
+    pull_policy: never
+    depends_on:
+      - transaction-server
+    read_only: true
+    init: true
+    volumes:
+      - type: tmpfs
+        target: /tmp
+      - type: bind
+        source: ./web-ui/config.toml
+        target: /app/config.toml
+        read_only: true
+    environment:
+      TRANSACTION_SERVICE: http://transaction-server:8080
+
+  web-ui-2: *web-ui
+
+  web-ui-load-balancer:
+    build: ./web-ui-load-balancer/
+    pull_policy: never
+    ports:
+      - target: 8000
+        published: 8000
+        protocol: tcp
+    depends_on:
+      - web-ui-1
+      - web-ui-2
+    read_only: false
+    init: true
 
   #build-test:
   #  build: ./testing/

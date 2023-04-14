@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Log in{% endblock %}
+
+{% block body %}
+	<form class="form" method="POST" action="/login">
+		<p>Please log in to manage your trading account and trade stocks.</p>
+
+		<label class="field">
+			<span class="field-label">Username</span>
+			<input class="text-input" name="username" required autofocus pattern="[a-zA-Z0-9]+" maxlength="40" title="Letters and numbers, case-sensitive">
+		</label>
+
+		<p class="project-note">Note: for the purposes of this class project, there are no other credentials. A real-world implementation would use WebAuthn. Also, usernames are <strong>case-sensitive</strong> as suggested by the sample <samp>&lt;username&gt;oY01WVirLr&lt;/username&gt;</samp>.</p>
+
+		<div class="form-actions">
+			<button class="button">
+				Log in
+				<svg class="button-icon" width="8" height="16" viewBox="0 0 8 16">
+					<path d="m 1 3 6 6 -6 6" fill="none" stroke="currentColor" stroke-width="2" />
+				</svg>
+			</button>
+		</div>
+	</form>
+{% endblock %}

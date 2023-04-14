@@ -242,6 +242,7 @@ func addBalance(c *gin.Context) {
 	var newBalDif balanceDif
 
 	if err := c.BindJSON(&newBalDif); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -353,6 +354,7 @@ func buyStock(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON to an order
 	if err := c.BindJSON(&newOrder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -394,6 +396,7 @@ func commitBuy(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON to new BalDif
 	if err := c.BindJSON(&commitOrder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -486,6 +489,7 @@ func sellStock(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON to an order
 	if err := c.BindJSON(&newOrder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -542,6 +546,7 @@ func commitSell(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON to new BalDif
 	if err := c.BindJSON(&commitOrder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -661,6 +666,7 @@ func setAmount(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -701,6 +707,7 @@ func cancelSet(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&limitorder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 
@@ -741,14 +748,15 @@ func setTrigger(c *gin.Context) {
 		cmd = "SET_SELL_TRIGGER"
 	}
 
+	// Calling BindJSON to bind the recieved JSON
+	if err := c.BindJSON(&limitorder); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
+		return
+	}
+
 	// logging user command
 	cmdLog := logEntry{LogType: USERCOMMAND, Timestamp: time.Now().Unix(), Server: "own-server", TransactionNum: transaction_counter, Command: cmd, Username: limitorder.User, Funds: limitorder.Amount}
 	logEvent(cmdLog)
-
-	// Calling BindJSON to bind the recieved JSON
-	if err := c.BindJSON(&limitorder); err != nil {
-		return
-	}
 
 	j := 0
 	for _, o := range uncommited_limit_orders {
@@ -795,6 +803,7 @@ func dumplog(c *gin.Context) {
 
 	// Calling BindJSON to bind the recieved JSON
 	if err := c.BindJSON(&dumpLog); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, "Bad request")
 		return
 	}
 

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block body %}
+	{#<pre>{{ response|tojson("  ") }}</pre>#}
+
+	<p>Welcome, <b class="username">{{ request.user.username }}</b>!</p>
+
+	<div class="balance">
+		<p>Your trading account balance is: <strong class="balance-value">${{ "{:,.2f}".format(balance) }}</strong></p>
+		<div><a href="/fund">Add funds</a></div>
+	</div>
+
+	<h2>Pending transactions</h2>
+
+	{% if pending_transactions %}
+	<table>
+		<thead>
+			<tr>
+				<th>Transaction type</th>
+				<th>Stock</th>
+				<th>Quantity</th>
+				<th>Unit price</th>
+				<th>Total price</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for t in pending_transactions %}
+			<tr>
+				<td>{{ t["type"]|title }}</td>
+				<td>{{ t["stockSymbol"] }} </td>
+				{% if t["quantity"] %}<td class="cell-numeric">{{ t["quantity"] }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+				{% if t["unit-price"] %}<td class="cell-currency">{{ "${:,.2f}".format(t["unit-price"]) }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+				{% if t["total-price"] %}<td class="cell-currency">{{ "${:,.2f}".format(t["total-price"]) }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+				<td>
+					{% if t["can-commit"] %}
+					<form method="POST" action="/trade" class="actions">
+						<button name="do" value="commit-{{ t["type"]|lower }}" class="button">Commit</button> <button name="do" value="cancel-{{ t["type"]|lower }}" class="button">Cancel</button>
+					</form>
+					{% endif %}
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<p>No pending transactions.</p>
+	{% endif %}
+
+	<h2>Transaction history</h2>
+
+	{% if transaction_history %}
+	<table>
+		<thead>
+			<tr>
+				<th>Timestamp</th>
+				<th>Transaction type</th>
+				<th>Stock</th>
+				<th>Quantity</th>
+				<th>Unit price</th>
+				<th>Total price</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for t in transaction_history %}
+				<tr>
+					<td>{{ t["timestamp"] }}</td>
+					<td>{{ t["type"]|title }}</td>
+					{% if t["stockSymbol"] %}<td>{{ t["stockSymbol"] }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+					{% if t["quantity"] %}<td class="cell-numeric">{{ t["quantity"] }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+					{% if t["unit-price"] %}<td class="cell-currency">{{ "${:,.2f}".format(t["unit-price"]) }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+					{% if t["total-price"] %}<td class="cell-currency">{{ "${:,.2f}".format(t["total-price"]) }}</td>{% else %}<td class="cell-empty"></td>{% endif %}
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<p>No transaction history.</p>
+	{% endif %}
+
+	<h2>Trading</h2>
+
+	<form class="form" method="GET" action="/trade">
+		<label class="field">
+			<span class="field-label">Stock</span>
+			<input class="text-input" type="text" name="stock" required pattern="[a-zA-Z]+" title="A stock symbol, letters only" placeholder="AAPL">
+		</label>
+
+		<div class="form-actions">
+			<button class="button">Get quote and trade</button>
+			<button name="automatic" value="yes" class="button">Create automatic trade</button>
+		</div>
+	</form>
+
+	<h2>Account</h2>
+
+	<nav>
+		<ul>
+			<li>
+				<form method="POST" action="/logout">
+					<button class="link-button">Log out</button>
+				</form>
+			</li>
+		</ul>
+	</nav>
+{% endblock %}

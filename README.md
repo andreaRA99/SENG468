@@ -28,9 +28,7 @@ In the project root directory run the following command
 
     docker compose up --build
 
-Visit
-
-    `web-server`
+Visit <http://daytrading.localhost:8000/>.
 
 To stop the containers
 
